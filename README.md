@@ -5,7 +5,7 @@ Arguments: <br />
 &emsp; Show help options. <br />
 -D <br />
 &emsp; Print debug messages. <br />
-&emsp; Defaults to False.
+&emsp; Defaults to False. <br />
 --sim_time <br />
 &emsp; Seconds to be simulated in this run; the final round may run over some ms. <br />
 &emsp; Defaults to 100,000 seconds. <br />
@@ -17,10 +17,10 @@ Arguments: <br />
 &emsp; Defaults to 100 miliseconds. <br />
 --node_mode <br />
 &emsp; Whether the non-user nodes should be trusted nodes (TN) or simple trusted nodes (STN). <br />
-&emsp; Defaults to TN.
+&emsp; Defaults to TN. <br />
 --link_noise <br />
 &emsp; Link-level noise in the system, represented as a decimal form of a percentage. <br />
-&emsp; Defaults to 0.02.
+&emsp; Defaults to 0.02. <br />
 --prob_x_basis <br />
 &emsp; Probability for the X basis to be chosen in the quantum phase of QKD. <br />
-&emsp; Defaults to 0.2.
+&emsp; Defaults to 0.2. <br />
