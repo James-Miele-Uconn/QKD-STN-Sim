@@ -1,3 +1,5 @@
+from numpy import log, log2, sqrt
+
 class Node:
     """A class to represent different nodes in a network.
 
@@ -57,17 +59,38 @@ class STN(Node):
       J: Per-neighbor number of rounds before needing to refresh secret key pool with that neighbor.
     """
 
-    def __init__(self, name=None, neighbors=None):
+    def __init__(self, name=None, neighbors=None, N=None, Q=None, px=None):
         """Constructor for the subclass STN of class Node.
 
         Args:
           name: Name/identifier for the node. Defaults to None.
           neighbors: List of neighboring nodes. Defaults to None.
+          N: Number of rounds in quantum phase of QKD. Defaults to None.
+          Q: Link-level noise in the system. Defaults to None.
+          px: Probability of using X basis in quantum phase of QKD. Defaults to None.
         """
         self.TN_mode = False
         self.J = dict()
+
+        # Find key pool size
+        eps_abort = 10**(-10)
+        eps_prime = 10**(-10)
+        beta = sqrt(log(2.0 / eps_abort) / (2.0 * N))
+        denom = 1 - (2.0 * px * (1 - px)) - beta
+        N_tilde = N * denom
+        beta_prime = sqrt(log(2.0 / eps_abort) / (2.0 * N_tilde))
+        m_0 = N_tilde * (((px**2) / denom) - beta_prime)
+        n_0 = N_tilde * (1 - ((px**2) / denom) - beta_prime)
+        mu = sqrt(((n_0 + m_0) / (n_0 * m_0)) * ((m_0 + 1) / m_0) * log(2.0 / eps_prime))
+        ec_p = Q + mu
+        lambda_ec = -(ec_p * log2(ec_p)) - ((1 - ec_p) * log2(1 - ec_p))
+        key_pool_size = (n_0 * (1 - lambda_ec)) - lambda_ec - (2.0 * log(2.0 / eps_prime))
+
+        # Initialize J values for all neighbors
         for n in neighbors:
-            self.J[n] = 10
+            cur_J = (key_pool_size - log2(N)) / log2(N)   # l(bb84)(N, Q) - c(N) / c(N), c(N) = log2(N)
+            self.J[n] = int(cur_J)    # Currently take floor of J value, might need to take ceiling, might need to do nothing
+
         super().__init__(name=name, node_type="STN")
     
     def use_pool_bits(self, neighbor, N):
