@@ -4,7 +4,7 @@ Arguments: <br />
 -h, --help <br />
 &emsp; Show help options <br />
 --sim_time <br />
-&emsp; How many seconds should be simulated in this run; the final round may run over some ms. Defaults to 100 seconds. <br />
+&emsp; Seconds to be simulated in this run; the final round may run over some ms. Defaults to 100 seconds. <br />
 --quantum_rounds <br />
 &emsp; Number of rounds for each quantum phase of QKD; should be at least 10^4 rounds. Defaults to 10^7 rounds. <br />
 --classic_time <br />
