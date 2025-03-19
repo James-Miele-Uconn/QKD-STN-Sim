@@ -10,4 +10,4 @@ Arguments: <br />
 --classic_time <br />
 &emsp; The amount of time required for the classical phase of QKD. Defaults to 100 miliseconds. <br />
 --node_mode <br />
-&emsp; Whether the non-user nodes in the graph should be trusted nodes (TN) or simple trusted nodes (STN). Defaults to TN.
+&emsp; Whether the non-user nodes should be trusted nodes (TN) or simple trusted nodes (STN). Defaults to TN.
