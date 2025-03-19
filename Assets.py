@@ -135,11 +135,11 @@ class QKD_Inst():
         
         return self.timer
     
-    def switch_operation(self, base_time):
+    def switch_operation(self, timer_val=0):
         """Change operation to next phase, and set timer to reflect new operation.
 
         Args:
-          base_time: Integer giving base reference of ammount of time passing per simulator round.
+          timer_val: What value to set the timer to. Defaults to 0.
         
         Returns:
           Current operation after switch.
@@ -149,17 +149,17 @@ class QKD_Inst():
             self.operation = "Quantum"
             for node in self.route:
                 node.operation = "Quantum"
-            self.timer = base_time
+            self.timer = timer_val
         elif cur_operation == "Quantum":
             self.operation = "Classic"
             for node in self.route:
                 node.operation = "Classic"
-            self.timer = (base_time * 5)
+            self.timer = timer_val
         elif cur_operation == "Classic":
             self.operation = None
             for node in self.route:
                 node.operation = None
-            self.timer = 0
+            self.timer = timer_val
         
         return self.operation
     
