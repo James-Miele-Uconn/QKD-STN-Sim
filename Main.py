@@ -10,7 +10,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import random as rand
 import argparse
-from numpy import log10, ceil
+from numpy import log10, log2, log, ceil
 from time import time
 from Assets import *
 
@@ -124,11 +124,13 @@ def remove_and_store_new_QKD(graph, routes):
     return route_nodes
 
 
-def continue_QKD(current_qkd, N, classic_time):
+def continue_QKD(node_mode, current_qkd, info, N, classic_time):
     """Simulate QKD for each given QKD instance.
 
     Args:
+      node_mode: Whether the non-user nodes are TNs or STNs
       current_qkd: List of QKD_Inst objects to handle this simulator round.
+      info: Info_Tracker object for tracking stats.
       N: Number of rounds of communication within the quantum phase of QKD
       classic_time: Amount of time (in ms) for the classical phase of QKD.
     
@@ -171,6 +173,9 @@ def continue_QKD(current_qkd, N, classic_time):
     for qkd in current_qkd:
         # Determine actions based on current operation
         if qkd.operation is None:
+            # Track relevant statistics
+            info.increase_finished_keys()
+
             # Release any nodes left in this QKD instance
             for node in qkd.route:
                 # Flip node out of TN mode
@@ -181,6 +186,12 @@ def continue_QKD(current_qkd, N, classic_time):
                 add_back.append(node)
                 qkd.route.remove(node)
         elif qkd.operation == "Classic":
+            # Track relevant statistics
+            if node_mode == "STN":
+                pass
+            else:
+                pass
+
             # Decrement STN J for each neighbor, releasing STN if all neighbors have J above 0
             to_remove = list()
             for node in qkd.route:
@@ -190,16 +201,16 @@ def continue_QKD(current_qkd, N, classic_time):
                         # Use secret key pool bits
                         left_n = qkd.route[qkd.route.index(node) - 1]
                         right_n = qkd.route[qkd.route.index(node) + 1]
-                        left_j = node.use_pool_bits(left_n.name, N)
-                        right_j = node.use_pool_bits(right_n.name, N)
+                        left_j = node.use_pool_bits(left_n.name)
+                        right_j = node.use_pool_bits(right_n.name)
 
                         # Refresh secret key bits and flip to TN mode, as needed
                         should_flip = False
                         if (left_j == 0):
-                            node.refresh_pool_bits(left_n.name, N)
+                            node.refresh_pool_bits(left_n.name, info.J)
                             should_flip = True
                         if (right_j == 0):
-                            node.refresh_pool_bits(right_n.name, N)
+                            node.refresh_pool_bits(right_n.name, info.J)
                             should_flip = True
                         if should_flip:
                             node.TN_mode = True
@@ -223,7 +234,7 @@ def parse_arguments():
       All arguments that can be set through the cli.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-D", metavar="", help="\tprint debug messages. Defaults to False.", default=False, type=bool)
+    parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100 sec.", default=100000, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
     parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to 100 ms.", default=100, type=float)
@@ -235,13 +246,15 @@ def parse_arguments():
     return args
 
 
-def main(graph, nodes, graph_dict, sim_time, N, Q, px, classic_time, debug, src_nodes=None):
+def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_time, debug, src_nodes=None):
     """Entry point for the program.
     
     Args:
       graph: NetworkX Graph of network.
       nodes: Dict of node names and their respective Node objects
       graph_dict: Dict of node names with their neighbors (and any edge attributes)
+      info: Info_Tracker object for tracking various statistics for this run of the simulator.
+      node_mode: Whether the non-user nodes are TNs or STNs.
       sim_time: Amount of time (in sec) that should be simulated in this run.
       N: Number of rounds of communication within the quantum phase of QKD.
       Q: Link-level noise in the system, as a decimal representation of a percentage.
@@ -256,7 +269,6 @@ def main(graph, nodes, graph_dict, sim_time, N, Q, px, classic_time, debug, src_
     active_qkd = list() # List of actively running QKD instances
     total_sim_time = 0.0    # Total amount of time (in sec) that has passed in this simulation
     rounds = 0  # Total number of rounds that have passe din this simulation
-    finished_keys = 0   # Total keys generated by the simulation
 
     # Get time simulation actually starts running for debug messages
     if debug:
@@ -278,13 +290,12 @@ def main(graph, nodes, graph_dict, sim_time, N, Q, px, classic_time, debug, src_
             active_qkd.append(QKD_Inst(route))
 
         # Step 4: For all current QKD instances, continue operation
-        cur_round_time, to_add = continue_QKD(active_qkd, N, classic_time)
+        cur_round_time, to_add = continue_QKD(node_mode, active_qkd, info, N, classic_time)
 
         # Step 5: Remove any finished QKD instances
         for qkd in active_qkd:
             if qkd.is_finished():
                 active_qkd.remove(qkd)
-                finished_keys += 1
         
         # Step 6: Add any freed nodes back into the running graph
         for node in to_add:
@@ -304,13 +315,21 @@ def main(graph, nodes, graph_dict, sim_time, N, Q, px, classic_time, debug, src_
                 last_time = cur_time
     
     print(f"\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
-    print(f"\nEfficiency Statistics:\nKeys generated: {finished_keys:,}")
+    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}")
 
 
 # Run the simulator if this file is called
 if __name__ == "__main__":
     # Get parameters from cli
     args = parse_arguments()
+
+    # Define variables to be used in math
+    N = args.quantum_rounds
+    Q = args.link_noise
+    px = args.prob_x_basis
+
+    # Create Info_Tracker object and get information required for setup
+    info = Info_Tracker(N, Q, px)
 
     # Determine test graph to use
     cur_graph = 2
@@ -343,7 +362,7 @@ if __name__ == "__main__":
         if args.node_mode == "TN":
             test_nodes["n0"] = TN(name="n0")
         elif args.node_mode == "STN":
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), N=args.quantum_rounds, Q=args.link_noise, px=args.prob_x_basis)
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
     elif cur_graph == 2:
         test_nodes = {"a0": User(name="a0"),
                 "a1": User(name="a1"),
@@ -353,8 +372,8 @@ if __name__ == "__main__":
             test_nodes["n0"] = TN(name="n0")
             test_nodes["n1"] = TN(name="n1")
         elif args.node_mode == "STN":
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), N=args.quantum_rounds, Q=args.link_noise, px=args.prob_x_basis)
-            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), N=args.quantum_rounds, Q=args.link_noise, px=args.prob_x_basis)
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
     
     # Set graph based on desired test graph setup
     graph_dict = test_graph_dict
@@ -368,4 +387,4 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     # Start simulator
-    main(G, nodes, graph_dict, args.sim_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
+    main(G, nodes, graph_dict, info, args.node_mode, args.sim_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
