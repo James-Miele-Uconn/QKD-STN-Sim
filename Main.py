@@ -173,8 +173,9 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
     for qkd in current_qkd:
         # Determine actions based on current operation
         if qkd.operation is None:
-            # Track relevant statistics
+            # Track relevant statistics at QKD completion
             info.increase_finished_keys()
+            info.increase_cost(qkd.p, node_mode)
 
             # Release any nodes left in this QKD instance
             for node in qkd.route:
@@ -186,12 +187,6 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
                 add_back.append(node)
                 qkd.route.remove(node)
         elif qkd.operation == "Classic":
-            # Track relevant statistics
-            if node_mode == "STN":
-                pass
-            else:
-                pass
-
             # Decrement STN J for each neighbor, releasing STN if all neighbors have J above 0
             to_remove = list()
             for node in qkd.route:
@@ -204,7 +199,7 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
                         left_j = node.use_pool_bits(left_n.name)
                         right_j = node.use_pool_bits(right_n.name)
 
-                        # Refresh secret key bits and flip to TN mode, as needed
+                        # Refresh secret key bits and determine if node should flip to TN mode
                         should_flip = False
                         if (left_j == 0):
                             node.refresh_pool_bits(left_n.name, info.J)
@@ -212,6 +207,8 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
                         if (right_j == 0):
                             node.refresh_pool_bits(right_n.name, info.J)
                             should_flip = True
+
+                        # Flip to TN mode if needed
                         if should_flip:
                             node.TN_mode = True
                             continue
@@ -311,11 +308,11 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
         if debug:
             cur_time = time() - start_time
             if ((cur_time - last_time) > 15):
-                print(f"[{cur_time:.1f}s] {rounds:,} rounds finished.")
+                print(f"[{cur_time//60:.0f}m {cur_time%60:.1f}s] {rounds:,} rounds finished.")
                 last_time = cur_time
     
-    print(f"\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
-    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}")
+    print(f"\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
+    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nCost incurred: {info.total_cost:,.0f}")
 
 
 # Run the simulator if this file is called

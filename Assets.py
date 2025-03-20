@@ -1,4 +1,5 @@
-from numpy import log, log2, sqrt
+from numpy import log, log2, sqrt, ceil
+from scipy.stats import binom
 
 class Node:
     """A class to represent different nodes in a network.
@@ -109,6 +110,7 @@ class QKD_Inst():
 
     Attributes:
       route: List of nodes involved in this QKD instance.
+      p: Number of non-user nodes in this QKD instance.
       operation: What operation the QKD instance is currently working on.
       timer: Amount of time left for current operation.
     """
@@ -120,6 +122,7 @@ class QKD_Inst():
           route: A list of nodes representing the route used for this QKD instance.
         """
         self.route = route
+        self.p = len(route) - 2
         self.operation = None
         self.timer = 0
     
@@ -187,9 +190,10 @@ class Info_Tracker():
 
     Attributes:
       finished_keys: Number of keys processed in this run of the simulator.
-      total_cost: Total cost incurred for this run of the simulator
-      math_vars: Dictionary containing variables used for necessary equations
-      key_rate_TN: BB84 key rate for networks using TNs, based on N, Q, and px
+      total_cost: Total cost incurred for this run of the simulator.
+      math_vars: Dictionary containing variables used for necessary equations.
+      key_rate_TN: BB84 key rate for networks using TNs, based on N, Q, and px.
+      J: Number of keys that can be made with a specific neighbor before needing to run EC and PA.
     """
     def __init__(self, N, Q, px):
         """Constructor for the class Info_Tracker
@@ -204,7 +208,7 @@ class Info_Tracker():
         self.total_cost = 0
 
         # Define variables to use for key rates
-        self.m_vars = {'eps': 10**(-30), 'eps_abort': 10**(-10), 'eps_prime': 10**(-10)}
+        self.m_vars = {'N': N, 'Q': Q, 'px': px, 'eps': 10**(-30), 'eps_abort': 10**(-10), 'eps_prime': 10**(-10)}
 
         # Math required to find key rates
         self.m_vars['beta'] = sqrt(log(2.0 / self.m_vars['eps_abort']) / (2.0 * N))
@@ -214,13 +218,13 @@ class Info_Tracker():
         self.m_vars['m_0'] = self.m_vars['N_tilde'] * (((px**2) / self.m_vars['denom']) - self.m_vars['beta_prime'])
         self.m_vars['n_0'] = self.m_vars['N_tilde'] * (1 - ((px**2) / self.m_vars['denom']) - self.m_vars['beta_prime'])
         self.m_vars['mu'] = sqrt(((self.m_vars['n_0'] + self.m_vars['m_0']) / (self.m_vars['n_0'] * self.m_vars['m_0'])) * ((self.m_vars['m_0'] + 1) / self.m_vars['m_0']) * log(2.0 / self.m_vars['eps_prime']))
-        self.m_vars['ec_p'] = Q + self.m_vars['mu']
-        self.m_vars['lambda_ec'] = -(self.m_vars['ec_p'] * log2(self.m_vars['ec_p'])) - ((1 - self.m_vars['ec_p']) * log2(1 - self.m_vars['ec_p']))
+        self.m_vars['ec_p_TN'] = Q + self.m_vars['mu']
+        self.m_vars['lambda_ec_TN'] = -(self.m_vars['ec_p_TN'] * log2(self.m_vars['ec_p_TN'])) - ((1 - self.m_vars['ec_p_TN']) * log2(1 - self.m_vars['ec_p_TN']))
         self.m_vars['N_0'] = N * self.m_vars['denom'] * (1 - (2 * self.m_vars['beta_prime']))
         self.m_vars['delta'] = sqrt(((self.m_vars['N_0'] + 2) / (self.m_vars['m_0'] * self.m_vars['N_0'])) * log(2 / (self.m_vars['eps']**2)))
 
         # Key rates
-        self.key_rate_TN = (self.m_vars['n_0'] * (1 - self.m_vars['lambda_ec'])) - self.m_vars['lambda_ec'] - (2.0 * log(2.0 / self.m_vars['eps_prime']))
+        self.key_rate_TN = (self.m_vars['n_0'] * (1 - self.m_vars['lambda_ec_TN'])) - self.m_vars['lambda_ec_TN'] - (2.0 * log(2.0 / self.m_vars['eps_prime']))
 
         # Key-rate dependent info
         self.J = (self.key_rate_TN - log2(N)) / log2(N)
@@ -228,3 +232,37 @@ class Info_Tracker():
     def increase_finished_keys(self):
         """Increase the counter tracking the number of keys that have been finished."""
         self.finished_keys += 1
+    
+    def increase_cost(self, p, node_mode):
+        """Increase the counter tracking the total cost incurred.
+
+        Args:
+          p: Number of non-user nodes in the current QKD instance.
+          node_mode: Whether the non-user nodes are TNs or STNs.
+        """
+        if node_mode == "STN":
+            # Find w_q
+            w_q = 0
+            p_lim = int(ceil((p + 1) / 2.0))
+            for i in range(p_lim):
+                cur_k = (2 * i) + 1
+                cur_n = p + 1
+                cur_p = self.m_vars['Q']
+                w_q += binom.pmf(cur_k, cur_n, cur_p)
+            
+            # Find lambda_ec_STN
+            ec_p_STN = w_q + self.m_vars['delta']
+            lambda_ec_STN = -(ec_p_STN * log2(ec_p_STN)) - ((1 - ec_p_STN) * log2(1 - ec_p_STN))
+
+            # Find key_rate_STN
+            key_rate_STN = (self.m_vars['n_0'] * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / self.m_vars['eps']))
+
+            # Find cost for current QKD instance and add it to total cost
+            # Assuming EC(N, w(q)) = EC(N, Q) = N
+            cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_rate_STN)
+            self.total_cost += cur_cost
+        else:
+            # Find cost for current QKD instance and add it to total cost
+            # Assuming EC(N, Q) = N
+            cur_cost = (((2 * p) + 2) * self.m_vars['N']) / self.key_rate_TN
+            self.total_cost += cur_cost
