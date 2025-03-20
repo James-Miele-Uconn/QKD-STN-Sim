@@ -5,7 +5,6 @@ Arguments: <br />
 &emsp; Show help options. <br />
 -D <br />
 &emsp; Print debug messages. <br />
-&emsp; Defaults to False. <br />
 --sim_time <br />
 &emsp; Seconds to be simulated in this run; the final round may run over some ms. <br />
 &emsp; Defaults to 100,000 seconds. <br />
