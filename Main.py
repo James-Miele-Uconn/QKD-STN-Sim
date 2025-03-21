@@ -174,8 +174,7 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
         # Determine actions based on current operation
         if qkd.operation is None:
             # Track relevant statistics at QKD completion
-            info.increase_finished_keys()
-            info.increase_cost(qkd.p, node_mode)
+            info.increase_all(qkd.p, node_mode)
 
             # Release any nodes left in this QKD instance
             for node in qkd.route:
@@ -312,7 +311,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
                 last_time = cur_time
     
     print(f"\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
-    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nCost incurred: {info.total_cost:,.0f}\n")
+    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nAverage key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n")
 
 
 # Run the simulator if this file is called

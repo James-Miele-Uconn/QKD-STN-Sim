@@ -191,8 +191,9 @@ class Info_Tracker():
     Attributes:
       finished_keys: Number of keys processed in this run of the simulator.
       total_cost: Total cost incurred for this run of the simulator.
+      average_key_rate: Average key rate (key length / qubits sent in quantum phase) for this run of the simulator.
       math_vars: Dictionary containing variables used for necessary equations.
-      key_rate_TN: BB84 key rate for networks using TNs, based on N, Q, and px.
+      key_length_TN: BB84 key rate for networks using TNs, based on N, Q, and px.
       J: Number of keys that can be made with a specific neighbor before needing to run EC and PA.
     """
     def __init__(self, N, Q, px):
@@ -206,6 +207,7 @@ class Info_Tracker():
         # Stats to track
         self.finished_keys = 0
         self.total_cost = 0
+        self.average_key_rate = 0
 
         # Define variables to use for key rates
         self.m_vars = {'N': N, 'Q': Q, 'px': px, 'eps': 10**(-30), 'eps_abort': 10**(-10), 'eps_prime': 10**(-10)}
@@ -224,21 +226,20 @@ class Info_Tracker():
         self.m_vars['delta'] = sqrt(((self.m_vars['N_0'] + 2) / (self.m_vars['m_0'] * self.m_vars['N_0'])) * log(2 / (self.m_vars['eps']**2)))
 
         # Key rates
-        self.key_rate_TN = (self.m_vars['n_0'] * (1 - self.m_vars['lambda_ec_TN'])) - self.m_vars['lambda_ec_TN'] - (2.0 * log(2.0 / self.m_vars['eps_prime']))
+        self.key_length_TN = (self.m_vars['n_0'] * (1 - self.m_vars['lambda_ec_TN'])) - self.m_vars['lambda_ec_TN'] - (2.0 * log(2.0 / self.m_vars['eps_prime']))
 
         # Key-rate dependent info
-        self.J = (self.key_rate_TN - log2(N)) / log2(N)
-    
-    def increase_finished_keys(self):
-        """Increase the counter tracking the number of keys that have been finished."""
-        self.finished_keys += 1
-    
-    def increase_cost(self, p, node_mode):
-        """Increase the counter tracking the total cost incurred.
+        self.J = (self.key_length_TN - log2(N)) / log2(N)
+
+    def find_key_length(self, p, node_mode):
+        """Find the length of the key for a QKD instance with the given number of nodes.
 
         Args:
           p: Number of non-user nodes in the current QKD instance.
           node_mode: Whether the non-user nodes are TNs or STNs.
+
+        Returns:
+          The length of the key made by the described QKD instance.
         """
         if node_mode == "STN":
             # Find w_q
@@ -249,20 +250,60 @@ class Info_Tracker():
                 cur_n = p + 1
                 cur_p = self.m_vars['Q']
                 w_q += binom.pmf(cur_k, cur_n, cur_p)
-            
+
             # Find lambda_ec_STN
             ec_p_STN = w_q + self.m_vars['delta']
             lambda_ec_STN = -(ec_p_STN * log2(ec_p_STN)) - ((1 - ec_p_STN) * log2(1 - ec_p_STN))
 
-            # Find key_rate_STN
-            key_rate_STN = (self.m_vars['n_0'] * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / self.m_vars['eps']))
+            # Find length of key for STN
+            key_length = (self.m_vars['n_0'] * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / self.m_vars['eps']))
+        else:
+            key_length = self.key_length_TN
+        
+        return key_length
 
+    def increase_finished_keys(self):
+        """Increase the counter tracking the number of keys that have been finished."""
+        self.finished_keys += 1
+    
+    def increase_cost(self, p, key_length, node_mode):
+        """Increase the counter tracking the total cost incurred.
+
+        Args:
+          p: Number of non-user nodes in the current QKD instance.
+          key_length: Length of the key made by the current QKD instance.
+          node_mode: Whether the non-user nodes are TNs or STNs.
+        """
+        if node_mode == "STN":
             # Find cost for current QKD instance and add it to total cost
             # Assuming EC(N, w(q)) = EC(N, Q) = N
-            cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_rate_STN)
+            cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_length)
             self.total_cost += cur_cost
         else:
             # Find cost for current QKD instance and add it to total cost
             # Assuming EC(N, Q) = N
-            cur_cost = (((2 * p) + 2) * self.m_vars['N']) / self.key_rate_TN
+            cur_cost = (((2 * p) + 2) * self.m_vars['N']) / key_length
             self.total_cost += cur_cost
+    
+    def increase_key_rate(self, key_length):
+        """Increase the counter tracking the average key rate.
+
+        Args:
+          key_length: Length of the key made by the current QKD instance.
+        """
+        if self.average_key_rate == 0:
+            self.average_key_rate = key_length / self.m_vars['N']
+        else:
+          self.average_key_rate += ((key_length / self.m_vars['N']) - self.average_key_rate) / self.finished_keys
+    
+    def increase_all(self, p, node_mode):
+        """Increase all stats that are being tracked.
+
+        Args:
+          p: Number of non-user nodes in the current QKD instance.
+          node_mode: Whether the non-user nodes are TNs or STNs.
+        """
+        self.increase_finished_keys()
+        cur_key_length = self.find_key_length(p, node_mode)
+        self.increase_cost(p, cur_key_length, node_mode)
+        self.increase_key_rate(cur_key_length)
