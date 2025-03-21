@@ -25,17 +25,16 @@ def find_available_src_nodes(graph, nodes):
     Returns:
       List of source nodes not currently involved in a task.
     """
-    available_nodes = list()
+    available_nodes = list()    # List for tracking nodes available to start QKD
 
+    # Check if each node is in the running graph
+    # If it is, check if it's currently being used for something (shouldn't happen but can't hurt to check)
     for node in nodes:
         if not graph.has_node(node):
             continue
 
         if graph.nodes[node]["data"].operation is None:
             available_nodes.append(node)
-    
-    for node in available_nodes:
-        nodes.append(nodes.pop(nodes.index(node)))
     
     return available_nodes
 
@@ -49,12 +48,35 @@ def determine_new_keys(nodes):
     Returns:
       List of nodes attempting key generation this simulator round.
     """
-    new_keys = list()
+    new_keys = list()   # List for tracking which available nodes will actually try to start QKD
 
+    # For now this is deterministic, all nodes will make keys every round that they can
     for node in nodes:
         new_keys.append(node)
     
     return new_keys
+
+
+def adjust_schedule(node_schedule, newest_active):
+    """Given a schedule of when to serve which nodes, adjust the schedule based on the most recently used nodes.
+
+    Args:
+      node_schedule: List containing the desired order in which to serve users.
+      newest_active: List containing the routes being used this round.
+    
+    Returns:
+      List containing the new order in which to serve users.
+    """
+    new_schedule = node_schedule[:]     # Copy of old schedule, to be modified
+
+    # Find source node for each route
+    recently_served = [route[0] for route in newest_active]
+
+    # Move each recently used source node to the end of the schedule
+    for node in recently_served:
+        new_schedule.append(new_schedule.pop(new_schedule.index(node)))
+    
+    return new_schedule
 
 
 def determine_routes(graph, nodes):
@@ -67,8 +89,8 @@ def determine_routes(graph, nodes):
     Returns:
       List of paths to use for new QKD instances.
     """
-    best_paths = list()
-    used_nodes = set()
+    best_paths = list()     # List for tracking which routes will be used
+    used_nodes = set()      # Set for ensuring chosen routes do not use overlapping nodes
 
     for node in nodes:
         # Find destination
@@ -269,7 +291,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
     node_schedule = deepcopy(src_nodes)    # Copy of src_nodes, to be modified during simulation
     active_qkd = list() # List of actively running QKD instances
     total_sim_time = 0.0    # Total amount of time (in sec) that has passed in this simulation
-    rounds = 0  # Total number of rounds that have passe din this simulation
+    rounds = 0  # Total number of rounds that have passed in this simulation
 
     # Get time simulation actually starts running for debug messages
     if debug:
@@ -280,11 +302,12 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
     while total_sim_time < sim_time:
         # Step 1: Find all nodes which will attempt to start QKD this simulator round
         available_nodes = find_available_src_nodes(RG, node_schedule)
-        new_keys = determine_new_keys(available_nodes)
+        new_keys = determine_new_keys(available_nodes)        
         
         # Step 2: Find all routes to use for starting new QKD instances
         new_routes = determine_routes(RG, new_keys)
         route_nodes = remove_and_store_new_QKD(RG, new_routes)
+        node_schedule = adjust_schedule(node_schedule, new_routes)
 
         # Step 3: Handle newly started QKD instances
         for route in route_nodes:
