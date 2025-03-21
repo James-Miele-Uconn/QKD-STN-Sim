@@ -34,6 +34,9 @@ def find_available_src_nodes(graph, nodes):
         if graph.nodes[node]["data"].operation is None:
             available_nodes.append(node)
     
+    for node in available_nodes:
+        nodes.append(nodes.pop(nodes.index(node)))
+    
     return available_nodes
 
 
@@ -176,15 +179,17 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
             # Track relevant statistics at QKD completion
             info.increase_all(qkd.p, node_mode)
 
-            # Release any nodes left in this QKD instance
+            # Note which nodes are still left in QKD instace
             for node in qkd.route:
                 # Flip node out of TN mode
                 if node.node_type == "STN":
                     node.TN_mode = False
 
-                # Release node from QKD instance
+                # Add node to list of nodes to add back
                 add_back.append(node)
-                qkd.route.remove(node)
+            
+            # Remove all nodes from this QKD instance's route. Probably not needed, but just in case.
+            qkd.route = list()
         elif qkd.operation == "Classic":
             # Decrement STN J for each neighbor, releasing STN if all neighbors have J above 0
             to_remove = list()
