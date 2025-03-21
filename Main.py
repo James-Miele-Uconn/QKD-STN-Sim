@@ -312,7 +312,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
                 last_time = cur_time
     
     print(f"\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
-    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nCost incurred: {info.total_cost:,.0f}")
+    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nCost incurred: {info.total_cost:,.0f}\n")
 
 
 # Run the simulator if this file is called
