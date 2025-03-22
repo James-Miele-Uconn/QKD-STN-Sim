@@ -1,6 +1,6 @@
 Run with "python Main.py" <br />
-(The above uses TNs, simulates 100,000,000 seconds, uses N of 10^7, Q of 0.02, px of 0.2, and quantum time, classic time, and round time of 10 sec)
-(Use "python Main.py -S" to use the same values but with STNs)
+(The above uses TNs, simulates 100,000,000 seconds, uses N of 10^7, Q of 0.02, px of 0.2, and quantum time, classic time, and round time of 10 sec) <br />
+(Use "python Main.py -S" to use the same values but with STNs) <br />
 
 Arguments: <br />
 -h, --help <br />
