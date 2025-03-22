@@ -168,7 +168,9 @@ def continue_QKD(node_mode, current_qkd, info, quantum_time, classic_time, round
 
     # Continue QKD
     for i in range(len(current_qkd)):
-        qkd = current_qkd[i]
+        qkd = current_qkd[i]    # The current QKD_Inst object being considered
+        left_quantum = False    # Whether or not the current qkd instance left the quantum phase this round
+
         # Start new QKD instances in quantum phase
         if qkd.operation is None:
             cur_quantum_time = quantum_time     # Time required for the quantum phase for this specific qkd instance
@@ -183,13 +185,15 @@ def continue_QKD(node_mode, current_qkd, info, quantum_time, classic_time, round
             # Decrease time left by round time, switching operation if timer hits 0
             cur_timer = qkd.dec_timer(round_time)
             if cur_timer == 0:
+                left_quantum = True
                 qkd.switch_operation(timer_val=classic_time)
 
         # Hanlde classical phase of qkd
         if qkd.operation == "Classic":
             # Adjust time spent in classical phase by time left in round after quantum phase
-            time_left = round_time
-            if leftover_time[i] > 0:
+            if not left_quantum:
+                time_left = round_time
+            else:
                 time_left = leftover_time[i]
             
             # Decrease time left by time left (either time in round or time left from quantum phase), switching operation if timer hits 0
