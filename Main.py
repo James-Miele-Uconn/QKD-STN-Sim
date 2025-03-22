@@ -262,8 +262,9 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100 sec.", default=100000, type=float)
+    parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
-    parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to 100 ms.", default=100, type=float)
+    parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to -1, for matching quantum time.", default=-1, type=float)
     parser.add_argument("--node_mode", metavar="", help="\twhether non-use nodes should be TNs or STNs. Defaults to TN.", default="TN", type=str)
     parser.add_argument("--link_noise", metavar="", help="\tlink-level noise in the system, as a decimal representation of a percentage. Defaults to 0.02.", default=0.02, type=float)
     parser.add_argument("--prob_x_basis", metavar="", help="\tprobability that the X basis is chosen in the quantum phase of QKD. Defaults to 0.2.", default=0.2, type=float)
@@ -272,7 +273,7 @@ def parse_arguments():
     return args
 
 
-def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_time, debug, src_nodes=None):
+def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, px, classic_time, debug, src_nodes=None):
     """Entry point for the program.
     
     Args:
@@ -282,6 +283,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
       info: Info_Tracker object for tracking various statistics for this run of the simulator.
       node_mode: Whether the non-user nodes are TNs or STNs.
       sim_time: Amount of time (in sec) that should be simulated in this run.
+      round_time: Amount of time (in ms) per sim round.
       N: Number of rounds of communication within the quantum phase of QKD.
       Q: Link-level noise in the system, as a decimal representation of a percentage.
       px: Probability that the X basis is chosen in the quantum phase of QKD.
@@ -302,8 +304,13 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
     valid_gen_rate = photon_gen_rate * valid_prob       # Rate of generation of valid qubits, based on pulse rate
     qubit_rate = N / valid_gen_rate
 
-    # Determine time per round
-    round_time = 1000
+    # Match classic time with quantum time, if desired
+    if classic_time == -1:
+        classic_time = qubit_rate
+
+    # Match round time to max of quantim or classic time, if desired
+    if round_time == -1:
+        round_time = max(qubit_rate, classic_time)
 
     # Get time simulation actually starts running for debug messages
     if debug:
@@ -435,4 +442,4 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     # Start simulator
-    main(G, nodes, graph_dict, info, args.node_mode, args.sim_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
+    main(G, nodes, graph_dict, info, args.node_mode, args.sim_time, args.round_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
