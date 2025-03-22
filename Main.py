@@ -271,7 +271,7 @@ def parse_arguments():
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
     parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to -1, for matching quantum time.", default=-1, type=float)
     parser.add_argument("--link_noise", metavar="", help="\tlink-level noise in the system, as a decimal representation of a percentage. Defaults to 0.02.", default=0.02, type=float)
-    parser.add_argument("--prob_x_basis", metavar="", help="\tprobability that the X basis is chosen in the quantum phase of QKD. Defaults to 0.2.", default=0.2, type=float)
+    parser.add_argument("--px", metavar="", help="\tprobability that the X basis is chosen in the quantum phase of QKD. Defaults to 0.2.", default=0.2, type=float)
     args = parser.parse_args()
 
     return args
@@ -392,7 +392,7 @@ if __name__ == "__main__":
     # Define variables to be used in math
     N = args.quantum_rounds
     Q = args.link_noise
-    px = args.prob_x_basis
+    px = args.px
 
     # Record of which nodes are allowed to start QKD
     source_nodes = ["a0", "a1"]
@@ -453,4 +453,4 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     # Start simulator
-    main(G, nodes, graph_dict, info, args.S, args.sim_time, args.round_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
+    main(G, nodes, graph_dict, info, args.S, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
