@@ -199,7 +199,7 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
         # Determine actions based on current operation
         if qkd.operation is None:
             # Track relevant statistics at QKD completion
-            info.increase_all(qkd.p, node_mode)
+            info.increase_all(qkd.route[0].name, qkd.p, node_mode)
 
             # Note which nodes are still left in QKD instace
             for node in qkd.route:
@@ -338,9 +338,14 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
                 print(f"[{cur_time//60:.0f}m {cur_time%60:.1f}s] {rounds:,} rounds finished.")
                 last_time = cur_time
     
-    print(f"\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}")
-    print(f"\nEfficiency Statistics:\nKeys generated: {info.finished_keys:,}\nAverage key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n")
+    sim_output = ""
+    sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
+    sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {info.finished_keys:,}\nKeys by user pair:\n"
+    for user in info.user_pair_keys.keys():
+        sim_output += f"    {user}-b{user[1]}: {info.user_pair_keys[user]:,}\n"
+    sim_output += f"Average key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n"
 
+    print(sim_output)
 
 # Run the simulator if this file is called
 if __name__ == "__main__":
@@ -352,8 +357,11 @@ if __name__ == "__main__":
     Q = args.link_noise
     px = args.prob_x_basis
 
+    # Record of which nodes are allowed to start QKD
+    source_nodes = ["a0", "a1"]
+
     # Create Info_Tracker object and get information required for setup
-    info = Info_Tracker(N, Q, px)
+    info = Info_Tracker(source_nodes, N, Q, px)
 
     # Determine test graph to use
     cur_graph = 2
@@ -402,9 +410,6 @@ if __name__ == "__main__":
     # Set graph based on desired test graph setup
     graph_dict = test_graph_dict
     nodes = test_nodes
-
-    # Record of which nodes are allowed to start QKD
-    source_nodes = ["a0", "a1"]
 
     # Make graph
     G = Graph(graph_dict)

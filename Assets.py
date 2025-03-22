@@ -192,14 +192,16 @@ class Info_Tracker():
       finished_keys: Number of keys processed in this run of the simulator.
       total_cost: Total cost incurred for this run of the simulator.
       average_key_rate: Average key rate (key length / qubits sent in quantum phase) for this run of the simulator.
+      user_pair_keys: Dictionary containing the number of keys made for each user pair in the network.
       math_vars: Dictionary containing variables used for necessary equations.
       key_length_TN: BB84 key rate for networks using TNs, based on N, Q, and px.
       J: Number of keys that can be made with a specific neighbor before needing to run EC and PA.
     """
-    def __init__(self, N, Q, px):
+    def __init__(self, source_nodes, N, Q, px):
         """Constructor for the class Info_Tracker
 
         Args:
+          source_nodes: List of nodes allowed to start QKD.
           N: Number of rounds of communication within the quantum phase of QKD.
           Q: Link-level noise in the system, as a decimal representation of a percentage.
           px: Probability that the X basis is chosen in the quantum phase of QKD.
@@ -208,6 +210,11 @@ class Info_Tracker():
         self.finished_keys = 0
         self.total_cost = 0
         self.average_key_rate = 0
+
+        # Dictionary to track keys made by specific user pairs
+        self.user_pair_keys = dict()
+        for node in source_nodes:
+            self.user_pair_keys[node] = 0
 
         # Define variables to use for key rates
         self.m_vars = {'N': N, 'Q': Q, 'px': px, 'eps': 10**(-30), 'eps_abort': 10**(-10), 'eps_prime': 10**(-10)}
@@ -266,6 +273,14 @@ class Info_Tracker():
         """Increase the counter tracking the number of keys that have been finished."""
         self.finished_keys += 1
     
+    def increase_user_pair_keys(self, source_node):
+        """Increase the counter tracking the number of keys that have been finished for a specific user pair.
+
+        Args:
+          source_node: The node whose counter should be increased
+        """
+        self.user_pair_keys[source_node] += 1
+
     def increase_cost(self, p, key_length, node_mode):
         """Increase the counter tracking the total cost incurred.
 
@@ -296,14 +311,16 @@ class Info_Tracker():
         else:
           self.average_key_rate += ((key_length / self.m_vars['N']) - self.average_key_rate) / self.finished_keys
     
-    def increase_all(self, p, node_mode):
+    def increase_all(self, source_node, p, node_mode):
         """Increase all stats that are being tracked.
 
         Args:
+          source_node: The node whose finished key counter should be increased.
           p: Number of non-user nodes in the current QKD instance.
           node_mode: Whether the non-user nodes are TNs or STNs.
         """
         self.increase_finished_keys()
+        self.increase_user_pair_keys(source_node)
         cur_key_length = self.find_key_length(p, node_mode)
         self.increase_cost(p, cur_key_length, node_mode)
         self.increase_key_rate(cur_key_length)
