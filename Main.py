@@ -322,51 +322,54 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, 
         last_time = 0
 
     # Run simulation
-    while True:
-        # Ensure valid time
-        sim_time_left = (sim_time * 1000) - total_sim_time
-        if round(sim_time_left, decimals=2) <= 0:
-            break
+    try:
+        while True:
+            # Ensure valid time
+            sim_time_left = (sim_time * 1000) - total_sim_time
+            if round(sim_time_left, decimals=2) <= 0:
+                break
 
-        # Step 1: Find all nodes which will attempt to start QKD this simulator round
-        available_nodes = find_available_src_nodes(RG, node_schedule)
-        new_keys = determine_new_keys(available_nodes)        
-        
-        # Step 2: Find all routes to use for starting new QKD instances
-        new_routes = determine_routes(RG, new_keys)
-        route_nodes = remove_and_store_new_QKD(RG, new_routes)
-        node_schedule = adjust_schedule(node_schedule, new_routes)
+            # Step 1: Find all nodes which will attempt to start QKD this simulator round
+            available_nodes = find_available_src_nodes(RG, node_schedule)
+            new_keys = determine_new_keys(available_nodes)        
+            
+            # Step 2: Find all routes to use for starting new QKD instances
+            new_routes = determine_routes(RG, new_keys)
+            route_nodes = remove_and_store_new_QKD(RG, new_routes)
+            node_schedule = adjust_schedule(node_schedule, new_routes)
 
-        # Step 3: Handle newly started QKD instances
-        for route in route_nodes:
-            active_qkd.append(QKD_Inst(route))
+            # Step 3: Handle newly started QKD instances
+            for route in route_nodes:
+                active_qkd.append(QKD_Inst(route))
 
-        # Step 4: For all current QKD instances, continue operation
-        if sim_time_left < round_time:
-            round_time = sim_time_left
-        to_add = continue_QKD(node_mode, active_qkd, info, qubit_rate, classic_time, round_time)
+            # Step 4: For all current QKD instances, continue operation
+            if sim_time_left < round_time:
+                round_time = sim_time_left
+            to_add = continue_QKD(node_mode, active_qkd, info, qubit_rate, classic_time, round_time)
 
-        # Step 5: Remove any finished QKD instances
-        for qkd in active_qkd:
-            if qkd.is_finished():
-                active_qkd.remove(qkd)
-        
-        # Step 6: Add any freed nodes back into the running graph
-        for node in to_add:
-            name = node.name
-            RG.add_node(name, data=node)
-            for neighbor in graph_dict[name]:
-                if RG.has_node(neighbor):
-                    RG.add_edge(name, neighbor)
-        
-        # Step 7: Track time passed in this simulator round
-        total_sim_time += round_time
-        rounds += 1
-        if debug:
-            cur_time = time() - start_time
-            if ((cur_time - last_time) > 15):
-                print(f"[{cur_time//60:2.0f}m {cur_time%60:4.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
-                last_time = cur_time
+            # Step 5: Remove any finished QKD instances
+            for qkd in active_qkd:
+                if qkd.is_finished():
+                    active_qkd.remove(qkd)
+            
+            # Step 6: Add any freed nodes back into the running graph
+            for node in to_add:
+                name = node.name
+                RG.add_node(name, data=node)
+                for neighbor in graph_dict[name]:
+                    if RG.has_node(neighbor):
+                        RG.add_edge(name, neighbor)
+            
+            # Step 7: Track time passed in this simulator round
+            total_sim_time += round_time
+            rounds += 1
+            if debug:
+                cur_time = time() - start_time
+                if ((cur_time - last_time) > 15):
+                    print(f"[{cur_time//60:2.0f}m {cur_time%60:4.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
+                    last_time = cur_time
+    except:
+        pass
     
     sim_output = ""
     sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_sim_time / 1000:,.2f} sec\nSimulator rounds: {rounds:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
