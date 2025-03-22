@@ -1,10 +1,13 @@
 Run with "python Main.py" <br />
+(The above uses TNs, simulates 100,000,000 seconds, uses N of 10^7, Q of 0.02, px of 0.2, and quantum time, classic time, and round time of 10 sec)
 
 Arguments: <br />
 -h, --help <br />
 &emsp; Show help options. <br />
 -D <br />
 &emsp; Print debug messages. <br />
+-S <br />
+&emsp; Use simple trusted nodes (STNs) instead of trusted nodes (TNs). <br />
 --sim_time <br />
 &emsp; Seconds to be simulated in this run; the final round may run over some ms. <br />
 &emsp; Defaults to 100,000,000 seconds. <br />
@@ -17,9 +20,6 @@ Arguments: <br />
 --classic_time <br />
 &emsp; The amount of time required for the classical phase of QKD. <br />
 &emsp; Defaults to -1, for matching quantum time. <br />
---node_mode <br />
-&emsp; Whether the non-user nodes should be trusted nodes (TN) or simple trusted nodes (STN). <br />
-&emsp; Defaults to TN. <br />
 --link_noise <br />
 &emsp; Link-level noise in the system, represented as a decimal form of a percentage. <br />
 &emsp; Defaults to 0.02. <br />

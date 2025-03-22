@@ -149,11 +149,11 @@ def remove_and_store_new_QKD(graph, routes):
     return route_nodes
 
 
-def continue_QKD(node_mode, current_qkd, info, quantum_time, classic_time, round_time):
+def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round_time):
     """Simulate QKD for each given QKD instance.
 
     Args:
-      node_mode: Whether the non-user nodes are TNs or STNs.
+      using_stn: Whether the non-user nodes are STNs.
       current_qkd: List of QKD_Inst objects to handle this simulator round.
       info: Info_Tracker object for tracking stats.
       quantum_time: Amount of time (in ms) for generating the qubits in the quantum phase of QKD.
@@ -206,7 +206,7 @@ def continue_QKD(node_mode, current_qkd, info, quantum_time, classic_time, round
         # Determine actions based on current operation
         if qkd.operation is None:
             # Track relevant statistics at QKD completion
-            info.increase_all(qkd.route[0].name, qkd.p, node_mode)
+            info.increase_all(qkd.route[0].name, qkd.p, using_stn)
 
             # Note which nodes are still left in QKD instace
             for node in qkd.route:
@@ -265,11 +265,11 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
+    parser.add_argument("-S", help="\tuse STNs instead of TNs.", action="store_true")
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
     parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to -1, for matching quantum time.", default=-1, type=float)
-    parser.add_argument("--node_mode", metavar="", help="\twhether non-use nodes should be TNs or STNs. Defaults to TN.", default="TN", type=str)
     parser.add_argument("--link_noise", metavar="", help="\tlink-level noise in the system, as a decimal representation of a percentage. Defaults to 0.02.", default=0.02, type=float)
     parser.add_argument("--prob_x_basis", metavar="", help="\tprobability that the X basis is chosen in the quantum phase of QKD. Defaults to 0.2.", default=0.2, type=float)
     args = parser.parse_args()
@@ -277,7 +277,7 @@ def parse_arguments():
     return args
 
 
-def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, px, classic_time, debug, src_nodes=None):
+def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, px, classic_time, debug, src_nodes=None):
     """Entry point for the program.
     
     Args:
@@ -285,7 +285,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, 
       nodes: Dict of node names and their respective Node objects
       graph_dict: Dict of node names with their neighbors (and any edge attributes)
       info: Info_Tracker object for tracking various statistics for this run of the simulator.
-      node_mode: Whether the non-user nodes are TNs or STNs.
+      using_stn: Whether the simulator is using STNs.
       sim_time: Amount of time (in sec) that should be simulated in this run.
       round_time: Amount of time (in ms) per sim round.
       N: Number of rounds of communication within the quantum phase of QKD.
@@ -345,7 +345,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, 
             # Step 4: For all current QKD instances, continue operation
             if sim_time_left < round_time:
                 round_time = sim_time_left
-            to_add = continue_QKD(node_mode, active_qkd, info, qubit_rate, classic_time, round_time)
+            to_add = continue_QKD(using_stn, active_qkd, info, qubit_rate, classic_time, round_time)
 
             # Step 5: Remove any finished QKD instances
             for qkd in active_qkd:
@@ -372,6 +372,10 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, 
         pass
     
     sim_output = ""
+    if using_stn:
+        node_mode = "STN"
+    else:
+        node_mode = "TN"
     sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_sim_time / 1000:,.2f} sec\nSimulator rounds: {rounds:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
     sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {info.finished_keys:,}\nKeys by user pair:\n"
     for user in info.user_pair_keys.keys():
@@ -424,19 +428,19 @@ if __name__ == "__main__":
                 "a1": User(name="a1"),
                 "b0": User(name="b0"),
                 "b1": User(name="b1")}
-        if args.node_mode == "TN":
+        if not args.S:
             test_nodes["n0"] = TN(name="n0")
-        elif args.node_mode == "STN":
+        else:
             test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
     elif cur_graph == 2:
         test_nodes = {"a0": User(name="a0"),
                 "a1": User(name="a1"),
                 "b0": User(name="b0"),
                 "b1": User(name="b1")}
-        if args.node_mode == "TN":
+        if not args.S:
             test_nodes["n0"] = TN(name="n0")
             test_nodes["n1"] = TN(name="n1")
-        elif args.node_mode == "STN":
+        else:
             test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
             test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
     
@@ -449,4 +453,4 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     # Start simulator
-    main(G, nodes, graph_dict, info, args.node_mode, args.sim_time, args.round_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)
+    main(G, nodes, graph_dict, info, args.S, args.sim_time, args.round_time, args.quantum_rounds, args.link_noise, args.prob_x_basis, args.classic_time, args.D, src_nodes=source_nodes)

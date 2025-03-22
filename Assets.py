@@ -238,17 +238,17 @@ class Info_Tracker():
         # Key-rate dependent info
         self.J = (self.key_length_TN - log2(N)) / log2(N)
 
-    def find_key_length(self, p, node_mode):
+    def find_key_length(self, p, using_stn):
         """Find the length of the key for a QKD instance with the given number of nodes.
 
         Args:
           p: Number of non-user nodes in the current QKD instance.
-          node_mode: Whether the non-user nodes are TNs or STNs.
+          using_stn: Whether the non-user nodes are STNs.
 
         Returns:
           The length of the key made by the described QKD instance.
         """
-        if node_mode == "STN":
+        if using_stn:
             # Find w_q
             w_q = 0
             p_lim = int(ceil((p + 1) / 2.0))
@@ -281,15 +281,15 @@ class Info_Tracker():
         """
         self.user_pair_keys[source_node] += 1
 
-    def increase_cost(self, p, key_length, node_mode):
+    def increase_cost(self, p, key_length, using_stn):
         """Increase the counter tracking the total cost incurred.
 
         Args:
           p: Number of non-user nodes in the current QKD instance.
           key_length: Length of the key made by the current QKD instance.
-          node_mode: Whether the non-user nodes are TNs or STNs.
+          using_stn: Whether the non-user nodes are STNs.
         """
-        if node_mode == "STN":
+        if using_stn:
             # Find cost for current QKD instance and add it to total cost
             # Assuming EC(N, w(q)) = EC(N, Q) = N
             cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_length)
@@ -311,16 +311,16 @@ class Info_Tracker():
         else:
           self.average_key_rate += ((key_length / self.m_vars['N']) - self.average_key_rate) / self.finished_keys
     
-    def increase_all(self, source_node, p, node_mode):
+    def increase_all(self, source_node, p, using_stn):
         """Increase all stats that are being tracked.
 
         Args:
           source_node: The node whose finished key counter should be increased.
           p: Number of non-user nodes in the current QKD instance.
-          node_mode: Whether the non-user nodes are TNs or STNs.
+          using_stn: Whether the non-user nodes are STNs.
         """
         self.increase_finished_keys()
         self.increase_user_pair_keys(source_node)
-        cur_key_length = self.find_key_length(p, node_mode)
-        self.increase_cost(p, cur_key_length, node_mode)
+        cur_key_length = self.find_key_length(p, using_stn)
+        self.increase_cost(p, cur_key_length, using_stn)
         self.increase_key_rate(cur_key_length)
