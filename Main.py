@@ -10,7 +10,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import random as rand
 import argparse
-from numpy import log10, log2, log, ceil
+from numpy import round, log10, log2, log, ceil
 from time import time
 from Assets import *
 
@@ -149,48 +149,51 @@ def remove_and_store_new_QKD(graph, routes):
     return route_nodes
 
 
-def continue_QKD(node_mode, current_qkd, info, N, classic_time):
+def continue_QKD(node_mode, current_qkd, info, quantum_time, classic_time, round_time):
     """Simulate QKD for each given QKD instance.
 
     Args:
-      node_mode: Whether the non-user nodes are TNs or STNs
+      node_mode: Whether the non-user nodes are TNs or STNs.
       current_qkd: List of QKD_Inst objects to handle this simulator round.
       info: Info_Tracker object for tracking stats.
-      N: Number of rounds of communication within the quantum phase of QKD
+      quantum_time: Amount of time (in ms) for generating the qubits in the quantum phase of QKD.
       classic_time: Amount of time (in ms) for the classical phase of QKD.
+      round_time: Amount of time (in ms) that is simulated every round.
     
     Returns:
-      Tuple containing time spent (in ms) in this simulator round, along with a list of nodes to add back into running graph.
+      List of nodes to add back into running graph.
     """
-    add_back = list()
-    photon_gen_rate = 10**9 / 1000                      # Pulse rate in miliseconds
-    valid_rate = 0.1                                    # Probability of valid photon generation
-    cur_quantum_times = [0.0 for qkd in current_qkd]    # List of time taken for quantum phase of qkd in this simulator round
-    cur_round_time = 0                                  # Time (in ms) taken this simulator round, based on maximum time for a qkd instance to perform quantum phase
+    add_back = list()   # List to contain nodes which should be added back into the running graph
+    leftover_time = [0 for qkd in current_qkd]  # List of time leftover after quantum phase, to allow work in classic phase
 
-    # Handle quantum phase of qkd
+    # Continue QKD
     for i in range(len(current_qkd)):
         qkd = current_qkd[i]
-        # Start timers for new QKD instances
+        # Start new QKD instances in quantum phase
         if qkd.operation is None:
-            qkd.switch_operation()
+            cur_quantum_time = quantum_time     # Time required for the quantum phase for this specific qkd instance
+            qkd.switch_operation(timer_val=cur_quantum_time)
         
-        # Find time required for each qkd instance in quantum phase
+        # Handle quantum phase of qkd
         if qkd.operation == "Quantum":
-            cur_time = N / photon_gen_rate
-            cur_quantum_times[i] = cur_time
-            qkd.switch_operation(timer_val=classic_time)
+            # If quantum phase will finish this round, note any time left in the round after quantum phase finishes
+            if qkd.timer < round_time:
+                leftover_time[i] = round_time - qkd.timer
+            
+            # Decrease time left by round time, switching operation if timer hits 0
+            cur_timer = qkd.dec_timer(round_time)
+            if cur_timer == 0:
+                qkd.switch_operation(timer_val=classic_time)
 
-    # Find time spent for quantum phase for this round. If no quantum phase, then default to average time needed (in ms) to send N qubits
-    cur_round_time = max(cur_quantum_times)
-    if cur_round_time == 0:
-        cur_round_time = N / photon_gen_rate
-    
-    # Handle classic phase of qkd based on time spent on quantum phase of this simulator round
-    for i in range(len(current_qkd)):
-        qkd = current_qkd[i]
+        # Hanlde classical phase of qkd
         if qkd.operation == "Classic":
-            cur_timer = qkd.dec_timer(cur_round_time - cur_quantum_times[i])
+            # Adjust time spent in classical phase by time left in round after quantum phase
+            time_left = round_time
+            if leftover_time[i] > 0:
+                time_left = leftover_time[i]
+            
+            # Decrease time left by time left (either time in round or time left from quantum phase), switching operation if timer hits 0
+            cur_timer = qkd.dec_timer(time_left)
             if cur_timer == 0:
                 qkd.switch_operation()
 
@@ -247,7 +250,7 @@ def continue_QKD(node_mode, current_qkd, info, N, classic_time):
             add_back += to_remove
             qkd.route = [n for n in qkd.route if (n not in to_remove)]
 
-    return (cur_round_time, add_back)
+    return add_back
 
 
 def parse_arguments():
@@ -290,8 +293,17 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
     RG = graph.copy()   # Copy graph to make running graph for use during simulation
     node_schedule = deepcopy(src_nodes)    # Copy of src_nodes, to be modified during simulation
     active_qkd = list() # List of actively running QKD instances
-    total_sim_time = 0.0    # Total amount of time (in sec) that has passed in this simulation
+    total_sim_time = 0.0    # Total amount of time (in ms) that has passed in this simulation
     rounds = 0  # Total number of rounds that have passed in this simulation
+
+    # Find time required for qubit generation
+    photon_gen_rate = 10**9 / 1000.0                    # Pulse rate in miliseconds
+    valid_prob = 10**(-3)                               # Probability of valid photon generation
+    valid_gen_rate = photon_gen_rate * valid_prob       # Rate of generation of valid qubits, based on pulse rate
+    qubit_rate = N / valid_gen_rate
+
+    # Determine time per round
+    round_time = 1000
 
     # Get time simulation actually starts running for debug messages
     if debug:
@@ -299,7 +311,12 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
         last_time = 0
 
     # Run simulation
-    while total_sim_time < sim_time:
+    while True:
+        # Ensure valid time
+        sim_time_left = (sim_time * 1000) - total_sim_time
+        if round(sim_time_left, decimals=2) <= 0:
+            break
+
         # Step 1: Find all nodes which will attempt to start QKD this simulator round
         available_nodes = find_available_src_nodes(RG, node_schedule)
         new_keys = determine_new_keys(available_nodes)        
@@ -314,7 +331,9 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
             active_qkd.append(QKD_Inst(route))
 
         # Step 4: For all current QKD instances, continue operation
-        cur_round_time, to_add = continue_QKD(node_mode, active_qkd, info, N, classic_time)
+        if sim_time_left < round_time:
+            round_time = sim_time_left
+        to_add = continue_QKD(node_mode, active_qkd, info, qubit_rate, classic_time, round_time)
 
         # Step 5: Remove any finished QKD instances
         for qkd in active_qkd:
@@ -330,16 +349,16 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, N, Q, px, classic_
                     RG.add_edge(name, neighbor)
         
         # Step 7: Track time passed in this simulator round
-        total_sim_time += (cur_round_time / 1000)
+        total_sim_time += round_time
         rounds += 1
         if debug:
             cur_time = time() - start_time
             if ((cur_time - last_time) > 15):
-                print(f"[{cur_time//60:.0f}m {cur_time%60:.1f}s] {rounds:,} rounds finished.")
+                print(f"[{cur_time//60:.0f}m {cur_time%60:.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
                 last_time = cur_time
     
     sim_output = ""
-    sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nSimulator rounds: {rounds - 1:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
+    sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_sim_time / 1000:,.2f} sec\nSimulator rounds: {rounds:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
     sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {info.finished_keys:,}\nKeys by user pair:\n"
     for user in info.user_pair_keys.keys():
         sim_output += f"    {user}-b{user[1]}: {info.user_pair_keys[user]:,}\n"
