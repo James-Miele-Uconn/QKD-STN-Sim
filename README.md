@@ -7,7 +7,7 @@ Arguments: <br />
 &emsp; Print debug messages. <br />
 --sim_time <br />
 &emsp; Seconds to be simulated in this run; the final round may run over some ms. <br />
-&emsp; Defaults to 100,000 seconds. <br />
+&emsp; Defaults to 100,000,000 seconds. <br />
 --round_time <br />
 &emsp; The amount of time that passes each simulator round. <br />
 &emsp; Defaults to -1, to match the maximum of quantum or classic time. <br />

@@ -265,7 +265,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
-    parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100 sec.", default=100000, type=float)
+    parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
     parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to -1, for matching quantum time.", default=-1, type=float)
@@ -365,7 +365,7 @@ def main(graph, nodes, graph_dict, info, node_mode, sim_time, round_time, N, Q, 
         if debug:
             cur_time = time() - start_time
             if ((cur_time - last_time) > 15):
-                print(f"[{cur_time//60:.0f}m {cur_time%60:.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
+                print(f"[{cur_time//60:2.0f}m {cur_time%60:4.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
                 last_time = cur_time
     
     sim_output = ""
