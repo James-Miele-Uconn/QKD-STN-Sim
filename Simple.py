@@ -1,10 +1,11 @@
 from numpy import sqrt, ceil, log, log2, log10
 from scipy.stats import binom
 
-def simple_sim(N, Q, px, sim_time, using_stn):
+def simple_sim(G, N, Q, px, sim_time, using_stn):
     """A simple simulator designed for a specific scenario.
 
     Args:
+      G: NetworkX Graph of network.
       N: Number of rounds of communication within the quantum phase of QKD.
       Q: Link-level noise in the system, as a decimal representation of a percentage.
       px: Probability that the X basis is chosen in the quantum phase of QKD.
@@ -28,7 +29,9 @@ def simple_sim(N, Q, px, sim_time, using_stn):
     eps = 10**(-30)
     eps_abort = 10**(-10)
     eps_prime = 10**(-10)
-    p = 2   # Number of TNs/STNs in the chain
+    inner_nodes = [node for node in G.nodes if node.startswith('n')]    # non-user nodes; assuming symmetrical design
+    p = len(inner_nodes)    # variable for easy reference in later equations
+    node_schedule = [node for node in G.nodes if node.startswith('a')]  # user nodes which can start QKD
 
     # Math required to find key rates
     beta = sqrt(log(2.0 / eps_abort) / (2.0 * N))
@@ -69,14 +72,15 @@ def simple_sim(N, Q, px, sim_time, using_stn):
     cost_TN = (((2 * p) + 2) * N) / key_length_TN
 
     # Variables to track statistics
-    node_schedule = ['a0', 'a1']                # Schedule of which node has priority for resources
-    timers = {'a0': 0, 'a1': float('inf')}      # Timers denoting how much time is left for each user pair's current QKD session
-    finished_keys = 0                           # How many keys have finished in total
-    user_pair_keys = dict()                     # Dictionary to keep track of keys finished per user pair
+    timers = dict()                     # Timers denoting how much time is left for each user pair's current QKD session
+    for node in node_schedule:
+        timers[node] = float('inf')
+    finished_keys = 0                   # How many keys have finished in total
+    user_pair_keys = dict()             # Dictionary to keep track of keys finished per user pair
     for node in node_schedule:
         user_pair_keys[node] = 0
-    total_cost = 0                              # Total accumulated cost
-    total_key_rate = 0                          # Total key rate in terms of key bits
+    total_cost = 0                      # Total accumulated cost
+    total_key_rate = 0                  # Total key rate in terms of key bits
 
     # Simulate sim_time total time passing in the simulator
     total_time = 0  # Track how much time has passed
@@ -84,7 +88,8 @@ def simple_sim(N, Q, px, sim_time, using_stn):
         if using_stn:
             # Get current node pair
             cur_node = node_schedule[0]
-            timers[cur_node] = (quantum_time + classic_time)
+            if timers[cur_node] == float('inf'):
+                timers[cur_node] = (quantum_time + classic_time)
 
             # Track time passing for normal round
             total_time += round_time

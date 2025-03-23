@@ -403,11 +403,6 @@ if __name__ == "__main__":
     Q = args.link_noise
     px = args.px
 
-    if args.simple:
-        simple_sim(N, Q, px, args.sim_time, False) # type: ignore
-        simple_sim(N, Q, px, args.sim_time, True) # type: ignore
-        exit()
-
     # Determine test graph to use
     cur_graph = args.graph
 
@@ -482,5 +477,11 @@ if __name__ == "__main__":
     G = Graph(graph_dict)
     set_node_attributes(G, nodes, "data")
 
-    # Start simulator
-    main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
+    if args.simple:
+        # Run simple simulation for both TNs and STNs, then exit
+        simple_sim(G, N, Q, px, args.sim_time, False) # type: ignore
+        simple_sim(G, N, Q, px, args.sim_time, True) # type: ignore
+        exit()
+    else:
+        # Start simulator
+        main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
