@@ -399,8 +399,8 @@ if __name__ == "__main__":
     args = parse_arguments()
 
     # Define variables to be used in math
-    N = args.quantum_rounds
-    Q = args.link_noise
+    N = args.N
+    Q = args.Q
     px = args.px
 
     # Determine test graph to use
