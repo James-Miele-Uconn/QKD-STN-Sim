@@ -264,6 +264,8 @@ class Info_Tracker():
 
             # Find length of key for STN
             key_length = (self.m_vars['n_0'] * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / self.m_vars['eps']))
+            if key_length < 0:
+                key_length = 0
         else:
             key_length = self.key_length_TN
         
@@ -292,7 +294,10 @@ class Info_Tracker():
         if using_stn:
             # Find cost for current QKD instance and add it to total cost
             # Assuming EC(N, w(q)) = EC(N, Q) = N
-            cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_length)
+            if key_length == 0:
+                cur_cost = float('inf')
+            else:
+              cur_cost = ((2 * self.J * self.m_vars['N']) + (((2 * p) + 2) * self.m_vars['N'])) / (self.J * key_length)
             self.total_cost += cur_cost
         else:
             # Find cost for current QKD instance and add it to total cost
