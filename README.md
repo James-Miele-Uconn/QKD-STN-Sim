@@ -25,10 +25,10 @@ Arguments: <br />
 --classic_time <br />
 &emsp; The amount of time required for the classical phase of QKD. <br />
 &emsp; Defaults to -1, to match the quantum time. <br />
---quantum_rounds <br />
+--N <br />
 &emsp; Number of rounds for each quantum phase of QKD; should be at least 10^4 rounds. <br />
 &emsp; Defaults to 10^7 rounds. <br />
---link_noise <br />
+--Q <br />
 &emsp; Link-level noise in the system, represented as a decimal form of a percentage. <br />
 &emsp; Defaults to 0.02. <br />
 --px <br />
