@@ -188,6 +188,7 @@ def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round
                 left_quantum = True
                 qkd.switch_operation(timer_val=classic_time)
 
+
         # Hanlde classical phase of qkd
         if qkd.operation == "Classic":
             # Adjust time spent in classical phase by time left in round after quantum phase
@@ -311,7 +312,10 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
     # Match classic time with quantum time, if desired
     # Based on ideal timing for all source nodes requiring the same STN
     if classic_time == -1:
-        classic_time = qubit_rate * (len(src_nodes) - 1)
+        if len(src_nodes) == 1:
+            classic_time = qubit_rate
+        else:
+            classic_time = qubit_rate * (len(src_nodes) - 1)
 
     # Match round time to max of quantim or classic time, if desired
     if round_time == -1:
@@ -395,17 +399,18 @@ if __name__ == "__main__":
     Q = args.link_noise
     px = args.px
 
-    # Record of which nodes are allowed to start QKD
-    source_nodes = ["a0", "a1"]
-
-    # Create Info_Tracker object and get information required for setup
-    info = Info_Tracker(source_nodes, N, Q, px)
-
     # Determine test graph to use
-    cur_graph = 2
+    cur_graph = 0
 
     # Mapping of node names to neighbor names (and edge attributes)
-    if cur_graph == 1:
+    if cur_graph == 0:
+        test_graph_dict = {
+            "a0": {"n0": {"weight": 1}},
+            "b0": {"n1": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
+            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
+        }
+    elif cur_graph == 1:
         test_graph_dict = {
             "a0": {"n0": {"weight": 1}},
             "a1": {"n0": {"weight": 1}},
@@ -423,8 +428,23 @@ if __name__ == "__main__":
             "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
         }
 
+    # Record of which nodes are allowed to start QKD
+    source_nodes = [node for node in test_graph_dict.keys() if node.startswith('a')]
+
+    # Create Info_Tracker object and get information required for setup
+    info = Info_Tracker(source_nodes, N, Q, px)
+
     # Mapping of node names to Node objects
-    if cur_graph == 1:
+    if cur_graph == 0:
+        test_nodes = {"a0": User(name="a0"),
+                "b0": User(name="b0")}
+        if args.stn:
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
+            test_nodes["n1"] = TN(name="n1")
+    elif cur_graph == 1:
         test_nodes = {"a0": User(name="a0"),
                 "a1": User(name="a1"),
                 "b0": User(name="b0"),
