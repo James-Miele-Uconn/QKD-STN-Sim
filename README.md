@@ -14,10 +14,10 @@ Arguments: <br />
 &emsp; Defaults to 100,000,000 seconds. <br />
 --round_time <br />
 &emsp; The amount of time that passes each simulator round. <br />
-&emsp; Defaults to -1, to match the maximum of quantum or classic time. <br />
+&emsp; Defaults to -1, to match the quantum time. <br />
 --classic_time <br />
 &emsp; The amount of time required for the classical phase of QKD. <br />
-&emsp; Defaults to -1, for matching quantum time. <br />
+&emsp; Defaults to -1, to match the quantum time. <br />
 --quantum_rounds <br />
 &emsp; Number of rounds for each quantum phase of QKD; should be at least 10^4 rounds. <br />
 &emsp; Defaults to 10^7 rounds. <br />
