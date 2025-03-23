@@ -76,7 +76,7 @@ def simple_sim(N, Q, px, sim_time, using_stn):
     for node in node_schedule:
         user_pair_keys[node] = 0
     total_cost = 0                              # Total accumulated cost
-    average_key_rate = 0                        # Average key rate as ratio of key length / N
+    total_key_rate = 0                          # Total key rate in terms of key bits
 
     # Simulate sim_time total time passing in the simulator
     total_time = 0  # Track how much time has passed
@@ -91,13 +91,13 @@ def simple_sim(N, Q, px, sim_time, using_stn):
             for node in timers.keys():
                 timers[node] -= round_time
                 if timers[node] <= 0:
-                    timers[node] = 0
+                    timers[node] = float('inf')
 
                     # Track stats
                     finished_keys += 1
                     user_pair_keys[cur_node] += 1
                     total_cost += cost_STN
-                    average_key_rate += ((key_length_STN / N) - average_key_rate) / finished_keys
+                    total_key_rate += key_length_STN
 
             # Handle extra time passing for every J'th round
             if (total_time % J_time) == 0:
@@ -111,13 +111,13 @@ def simple_sim(N, Q, px, sim_time, using_stn):
                 for node in timers.keys():
                     timers[node] -= ext_time
                     if timers[node] <= 0:
-                        timers[node] = 0
+                        timers[node] = float('inf')
 
                         # Track stats
                         finished_keys += 1
                         user_pair_keys[cur_node] += 1
                         total_cost += cost_STN
-                        average_key_rate += ((key_length_STN / N) - average_key_rate) / finished_keys
+                        total_key_rate += key_length_STN
 
             # Switch the order of priority
             node_schedule.append(node_schedule.pop(0))
@@ -131,16 +131,20 @@ def simple_sim(N, Q, px, sim_time, using_stn):
             for node in timers.keys():
                 timers[node] -= (quantum_time + classic_time)
                 if timers[node] <= 0:
-                    timers[node] = 0
+                    timers[node] = float('inf')
 
                     # Track stats
                     finished_keys += 1
                     user_pair_keys[cur_node] += 1
                     total_cost += cost_TN
-                    average_key_rate += ((key_length_TN / N) - average_key_rate) / finished_keys
+                    total_key_rate += key_length_TN
 
             # Switch the order of priority
             node_schedule.append(node_schedule.pop(0))
+
+    # Find average key rate
+    average_key_length = total_key_rate / finished_keys
+    average_key_rate = average_key_length / N
 
     sim_output = ""
     if using_stn:
