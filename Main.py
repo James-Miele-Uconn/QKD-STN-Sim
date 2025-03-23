@@ -12,7 +12,9 @@ import random as rand
 import argparse
 from numpy import round, log10, log2, log, ceil
 from time import time
+from sys import exit
 from Assets import *
+from Simple import * # type: ignore
 
 
 def find_available_src_nodes(graph, nodes):
@@ -267,6 +269,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
     parser.add_argument("--stn", help="\tuse STNs instead of TNs.", action="store_true")
+    parser.add_argument("--simple", help="\trun the simple simulator, then exit.", action="store_true")
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
@@ -307,7 +310,7 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
     photon_gen_rate = 10**9 / 1000.0                    # Pulse rate in miliseconds
     valid_prob = 10**(-3)                               # Probability of valid photon generation
     valid_gen_rate = photon_gen_rate * valid_prob       # Rate of generation of valid qubits, based on pulse rate
-    qubit_rate = N / valid_gen_rate
+    qubit_rate = N / valid_gen_rate                     # Time required to generate N valid qubits
 
     # Match classic time with quantum time, if desired
     # Based on ideal timing for all source nodes requiring the same STN
@@ -398,6 +401,11 @@ if __name__ == "__main__":
     N = args.quantum_rounds
     Q = args.link_noise
     px = args.px
+
+    if args.simple:
+        simple_sim(N, Q, px, args.sim_time, False) # type: ignore
+        simple_sim(N, Q, px, args.sim_time, True) # type: ignore
+        exit()
 
     # Determine test graph to use
     cur_graph = 0
