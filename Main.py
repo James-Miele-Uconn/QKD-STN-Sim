@@ -265,7 +265,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
-    parser.add_argument("-S", help="\tuse STNs instead of TNs.", action="store_true")
+    parser.add_argument("--stn", help="\tuse STNs instead of TNs.", action="store_true")
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
@@ -309,12 +309,13 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
     qubit_rate = N / valid_gen_rate
 
     # Match classic time with quantum time, if desired
+    # Based on ideal timing for all source nodes requiring the same STN
     if classic_time == -1:
-        classic_time = qubit_rate
+        classic_time = qubit_rate * (len(src_nodes) - 1)
 
     # Match round time to max of quantim or classic time, if desired
     if round_time == -1:
-        round_time = max(qubit_rate, classic_time)
+        round_time = qubit_rate
 
     # Get time simulation actually starts running for debug messages
     if debug:
@@ -428,21 +429,21 @@ if __name__ == "__main__":
                 "a1": User(name="a1"),
                 "b0": User(name="b0"),
                 "b1": User(name="b1")}
-        if not args.S:
-            test_nodes["n0"] = TN(name="n0")
-        else:
+        if args.stn:
             test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
     elif cur_graph == 2:
         test_nodes = {"a0": User(name="a0"),
                 "a1": User(name="a1"),
                 "b0": User(name="b0"),
                 "b1": User(name="b1")}
-        if not args.S:
-            test_nodes["n0"] = TN(name="n0")
-            test_nodes["n1"] = TN(name="n1")
-        else:
+        if args.stn:
             test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
             test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
+            test_nodes["n1"] = TN(name="n1")
     
     # Set graph based on desired test graph setup
     graph_dict = test_graph_dict
@@ -453,4 +454,4 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     # Start simulator
-    main(G, nodes, graph_dict, info, args.S, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
+    main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
