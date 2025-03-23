@@ -13,6 +13,9 @@ Arguments: <br />
 &emsp; Use simple trusted nodes (STNs) instead of trusted nodes (TNs). <br />
 --simple <br />
 &emsp; Run the simple simulator, then exit. <br />
+--graph <br />
+&emsp; Which graph to use for this run. <br />
+&emsp; Defaults to 2, to use graph 2. <br />
 --sim_time <br />
 &emsp; Seconds to be simulated in this run. <br />
 &emsp; Defaults to 100,000,000 seconds. <br />

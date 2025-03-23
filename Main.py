@@ -270,6 +270,7 @@ def parse_arguments():
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
     parser.add_argument("--stn", help="\tuse STNs instead of TNs.", action="store_true")
     parser.add_argument("--simple", help="\trun the simple simulator, then exit.", action="store_true")
+    parser.add_argument("--graph", metavar="", help="\twhich graph to use. Defaults to 2 for graph 2.", default=2, type=int)
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--quantum_rounds", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
@@ -408,7 +409,7 @@ if __name__ == "__main__":
         exit()
 
     # Determine test graph to use
-    cur_graph = 0
+    cur_graph = args.graph
 
     # Mapping of node names to neighbor names (and edge attributes)
     if cur_graph == 0:
