@@ -227,13 +227,13 @@ class Info_Tracker():
         self.m_vars['m_0'] = self.m_vars['N_tilde'] * (((px**2) / self.m_vars['denom']) - self.m_vars['beta_prime'])
         self.m_vars['n_0'] = self.m_vars['N_tilde'] * (1 - ((px**2) / self.m_vars['denom']) - self.m_vars['beta_prime'])
         self.m_vars['mu'] = sqrt(((self.m_vars['n_0'] + self.m_vars['m_0']) / (self.m_vars['n_0'] * self.m_vars['m_0'])) * ((self.m_vars['m_0'] + 1) / self.m_vars['m_0']) * log(2.0 / self.m_vars['eps_prime']))
-        self.m_vars['ec_p_TN'] = Q + self.m_vars['mu']
-        self.m_vars['lambda_ec_TN'] = -(self.m_vars['ec_p_TN'] * log2(self.m_vars['ec_p_TN'])) - ((1 - self.m_vars['ec_p_TN']) * log2(1 - self.m_vars['ec_p_TN']))
+        self.m_vars['entropy_p_TN'] = Q + self.m_vars['mu']
+        self.m_vars['entropy_TN'] = -(self.m_vars['entropy_p_TN'] * log2(self.m_vars['entropy_p_TN'])) - ((1 - self.m_vars['entropy_p_TN']) * log2(1 - self.m_vars['entropy_p_TN']))
         self.m_vars['N_0'] = N * self.m_vars['denom'] * (1 - (2 * self.m_vars['beta_prime']))
         self.m_vars['delta'] = sqrt(((self.m_vars['N_0'] + 2) / (self.m_vars['m_0'] * self.m_vars['N_0'])) * log(2 / (self.m_vars['eps']**2)))
 
         # Key rates
-        self.key_length_TN = (self.m_vars['n_0'] * (1 - self.m_vars['lambda_ec_TN'])) - self.m_vars['lambda_ec_TN'] - (2.0 * log(2.0 / self.m_vars['eps_prime']))
+        self.key_length_TN = (self.m_vars['n_0'] * (1 - self.m_vars['entropy_TN'])) - (self.m_vars['n_0'] * self.m_vars['entropy_TN']) - (2.0 * log(2.0 / self.m_vars['eps_prime']))
 
         # Key-rate dependent info
         self.J = (self.key_length_TN - log2(N)) / log2(N)
@@ -259,11 +259,11 @@ class Info_Tracker():
                 w_q += binom.pmf(cur_k, cur_n, cur_p)
 
             # Find lambda_ec_STN
-            ec_p_STN = w_q + self.m_vars['delta']
-            lambda_ec_STN = -(ec_p_STN * log2(ec_p_STN)) - ((1 - ec_p_STN) * log2(1 - ec_p_STN))
+            entropy_p_STN = w_q + self.m_vars['delta']
+            entropy_STN = -(entropy_p_STN * log2(entropy_p_STN)) - ((1 - entropy_p_STN) * log2(1 - entropy_p_STN))
 
             # Find length of key for STN
-            key_length = (self.m_vars['n_0'] * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / self.m_vars['eps']))
+            key_length = (self.m_vars['n_0'] * (1 - entropy_STN)) - (self.m_vars['n_0'] * entropy_STN) - (2.0 * log(1.0 / self.m_vars['eps']))
             if key_length < 0:
                 key_length = 0
         else:

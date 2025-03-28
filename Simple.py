@@ -41,8 +41,6 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
     m_0 = N_tilde * (((px**2) / denom) - beta_prime)
     n_0 = N_tilde * (1 - ((px**2) / denom) - beta_prime)
     mu = sqrt(((n_0 + m_0) / (n_0 * m_0)) * ((m_0 + 1) / m_0) * log(2.0 / eps_prime))
-    ec_p_TN = Q + mu
-    lambda_ec_TN = -(ec_p_TN * log2(ec_p_TN)) - ((1 - ec_p_TN) * log2(1 - ec_p_TN))
     N_0 = N * denom * (1 - (2 * beta_prime))
     delta = sqrt(((N_0 + 2) / (m_0 * N_0)) * log(2 / (eps**2)))
 
@@ -55,13 +53,15 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
         cur_p = Q
         w_q += binom.pmf(cur_k, cur_n, cur_p)
 
-    # Find lambda_ec_STN
-    ec_p_STN = w_q + delta
-    lambda_ec_STN = -(ec_p_STN * log2(ec_p_STN)) - ((1 - ec_p_STN) * log2(1 - ec_p_STN))
+    # Find entropy for TN and STN
+    entropy_p_TN = Q + mu
+    entropy_TN = -(entropy_p_TN * log2(entropy_p_TN)) - ((1 - entropy_p_TN) * log2(1 - entropy_p_TN))
+    entropy_p_STN = w_q + delta
+    entropy_STN = -(entropy_p_STN * log2(entropy_p_STN)) - ((1 - entropy_p_STN) * log2(1 - entropy_p_STN))
 
     # Find key rates
-    key_length_STN = (n_0 * (1 - lambda_ec_STN)) - lambda_ec_STN - (2.0 * log(1.0 / eps))
-    key_length_TN = (n_0 * (1 - lambda_ec_TN)) - lambda_ec_TN - (2.0 * log(2.0 / eps_prime))
+    key_length_STN = (n_0 * (1 - entropy_STN)) - (n_0 * entropy_STN) - (2.0 * log(1.0 / eps))
+    key_length_TN = (n_0 * (1 - entropy_TN)) - (n_0 * entropy_TN) - (2.0 * log(2.0 / eps_prime))
 
     # Find values determining when STNs need to act as TNs
     J = int((key_length_TN - log2(N)) / log2(N))
