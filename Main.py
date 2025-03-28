@@ -478,9 +478,8 @@ if __name__ == "__main__":
     set_node_attributes(G, nodes, "data")
 
     if args.simple:
-        # Run simple simulation for both TNs and STNs, then exit
-        simple_sim(G, N, Q, px, args.sim_time, False) # type: ignore
-        simple_sim(G, N, Q, px, args.sim_time, True) # type: ignore
+        # Run simple simulation, then exit
+        simple_sim(G, N, Q, px, args.sim_time, args.stn) # type: ignore
         exit()
     else:
         # Start simulator
