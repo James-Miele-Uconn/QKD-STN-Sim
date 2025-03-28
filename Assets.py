@@ -264,11 +264,13 @@ class Info_Tracker():
 
             # Find length of key for STN
             key_length = (self.m_vars['n_0'] * (1 - entropy_STN)) - (self.m_vars['n_0'] * entropy_STN) - (2.0 * log(1.0 / self.m_vars['eps']))
-            if key_length < 0:
-                key_length = 0
         else:
             key_length = self.key_length_TN
-        
+
+        # Ensure key rate is non-negative
+        if key_length < 0:
+            key_length = 0
+
         return key_length
 
     def increase_finished_keys(self):
@@ -324,8 +326,11 @@ class Info_Tracker():
           p: Number of non-user nodes in the current QKD instance.
           using_stn: Whether the non-user nodes are STNs.
         """
-        self.increase_finished_keys()
-        self.increase_user_pair_keys(source_node)
         cur_key_length = self.find_key_length(p, using_stn)
-        self.increase_cost(p, cur_key_length, using_stn)
-        self.increase_key_rate(cur_key_length)
+
+        # Only track stats if key rate is above zero
+        if cur_key_length > 0:
+          self.increase_finished_keys()
+          self.increase_user_pair_keys(source_node)
+          self.increase_key_rate(cur_key_length)
+          self.increase_cost(p, cur_key_length, using_stn)

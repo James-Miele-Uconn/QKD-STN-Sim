@@ -99,10 +99,11 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
                     timers[node] = float('inf')
 
                     # Track stats
-                    finished_keys += 1
-                    user_pair_keys[cur_node] += 1
-                    total_cost += cost_STN
-                    total_key_rate += key_length_STN
+                    if key_length_STN > 0:
+                        finished_keys += 1
+                        user_pair_keys[cur_node] += 1
+                        total_key_rate += key_length_STN
+                        total_cost += cost_STN
 
             # Handle extra time passing for every J'th round
             if (total_time % J_time) == 0:
@@ -119,10 +120,11 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
                         timers[node] = float('inf')
 
                         # Track stats
-                        finished_keys += 1
-                        user_pair_keys[cur_node] += 1
-                        total_cost += cost_STN
-                        total_key_rate += key_length_STN
+                        if key_length_STN > 0:
+                            finished_keys += 1
+                            user_pair_keys[cur_node] += 1
+                            total_cost += cost_STN
+                            total_key_rate += key_length_STN
 
             # Switch the order of priority
             node_schedule.append(node_schedule.pop(0))
@@ -139,10 +141,11 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
                     timers[node] = float('inf')
 
                     # Track stats
-                    finished_keys += 1
-                    user_pair_keys[cur_node] += 1
-                    total_cost += cost_TN
-                    total_key_rate += key_length_TN
+                    if key_length_TN > 0:
+                        user_pair_keys[cur_node] += 1
+                        finished_keys += 1
+                        total_key_rate += key_length_TN
+                        total_cost += cost_TN
 
             # Switch the order of priority
             node_schedule.append(node_schedule.pop(0))
