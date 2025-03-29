@@ -151,7 +151,10 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
             node_schedule.append(node_schedule.pop(0))
 
     # Find average key rate
-    average_key_length = total_key_rate / finished_keys
+    if finished_keys > 0:
+        average_key_length = total_key_rate / finished_keys
+    else:
+        average_key_length = 0
     average_key_rate = average_key_length / N
 
     sim_output = ""
