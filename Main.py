@@ -5,7 +5,7 @@ Multiple cost models will be used for analysis.
 To show graph: draw(G), plt.show() ### Must be done in cmd, else it won't work
 """
 
-from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, draw
+from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, draw # type: ignore
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import random as rand
