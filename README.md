@@ -18,8 +18,11 @@ Arguments: <br />
 &emsp; Which graph to use for this run. <br />
 &emsp; Defaults to 2, to use graph 2. <br />
 --sim_time <br />
-&emsp; Seconds to be simulated in this run. <br />
+&emsp; Seconds to be simulated in this run, set to -1 to disable. <br />
 &emsp; Defaults to 100,000,000 seconds. <br />
+--sim_keys <br />
+&emsp; Keys to be simulated in this run, set to -1 to disable. <br />
+&emsp; Defaults to -1. <br />
 --round_time <br />
 &emsp; The amount of time that passes each simulator round. <br />
 &emsp; Defaults to -1, to match the quantum time. <br />

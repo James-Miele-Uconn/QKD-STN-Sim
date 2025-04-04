@@ -151,7 +151,7 @@ def remove_and_store_new_QKD(graph, routes):
     return route_nodes
 
 
-def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round_time):
+def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round_time, sim_keys):
     """Simulate QKD for each given QKD instance.
 
     Args:
@@ -161,9 +161,10 @@ def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round
       quantum_time: Amount of time (in ms) for generating the qubits in the quantum phase of QKD.
       classic_time: Amount of time (in ms) for the classical phase of QKD.
       round_time: Amount of time (in ms) that is simulated every round.
+      sim_keys: Amount of keys to simulate in this run of the simulation.
     
     Returns:
-      List of nodes to add back into running graph.
+      List of nodes to add back into running graph, or None if ending early due to sim_keys.
     """
     add_back = list()   # List to contain nodes which should be added back into the running graph
     leftover_time = [0 for qkd in current_qkd]  # List of time leftover after quantum phase, to allow work in classic phase
@@ -222,6 +223,11 @@ def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round
             
             # Remove all nodes from this QKD instance's route. Probably not needed, but just in case.
             qkd.route = list()
+
+            # Check if simulator should end when using sim_keys
+            if sim_keys > -1:
+                if info.finished_keys == sim_keys:
+                    return None
         elif qkd.operation == "Classic":
             # Decrement STN J for each neighbor, releasing STN if all neighbors have J above 0
             to_remove = list()
@@ -271,7 +277,8 @@ def parse_arguments():
     parser.add_argument("--stn", help="\tuse STNs instead of TNs.", action="store_true")
     parser.add_argument("--simple", help="\trun the simple simulator, then exit.", action="store_true")
     parser.add_argument("--graph", metavar="", help="\twhich graph to use. Defaults to 2 for graph 2.", default=2, type=int)
-    parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run. Defaults to 100000000 sec.", default=10000000, type=float)
+    parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run, set to -1 to disable. Defaults to 100000000 sec.", default=10000000, type=float)
+    parser.add_argument("--sim_keys", metavar="", help="\tnumber of keys that should be simulated in this run, set to -1 to disable. Defaults to -1.", default=-1, type=int)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
     parser.add_argument("--classic_time", metavar="", help="\tamount of time (in ms) for the classical phase of QKD. Defaults to -1, for matching quantum time.", default=-1, type=float)
     parser.add_argument("--N", metavar="", help="\tnumber of rounds of communication within the quantum phase of QKD. Defaults to 10^7 rounds.", default=10**7, type=int)
@@ -282,7 +289,7 @@ def parse_arguments():
     return args
 
 
-def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, px, classic_time, debug, src_nodes=None):
+def main(graph, nodes, graph_dict, info, using_stn, sim_time, sim_keys, round_time, N, Q, px, classic_time, debug, src_nodes=None):
     """Entry point for the program.
     
     Args:
@@ -291,7 +298,8 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
       graph_dict: Dict of node names with their neighbors (and any edge attributes)
       info: Info_Tracker object for tracking various statistics for this run of the simulator.
       using_stn: Whether the simulator is using STNs.
-      sim_time: Amount of time (in sec) that should be simulated in this run.
+      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
+      sim_keys: Amount of keys to simulate, ignored if -1. Will stop early if sim_time is enabled and finishes sooner.
       round_time: Amount of time (in ms) per sim round.
       N: Number of rounds of communication within the quantum phase of QKD.
       Q: Link-level noise in the system, as a decimal representation of a percentage.
@@ -333,10 +341,12 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
     # Run simulation
     try:
         while True:
-            # Ensure valid time
-            sim_time_left = (sim_time * 1000) - total_sim_time
-            if round(sim_time_left, decimals=2) <= 0:
-                break
+            # Check for loop end and ensure valid time if using sim_time
+            sim_time_left = float('inf')
+            if sim_time > -1:
+                sim_time_left = (sim_time * 1000) - total_sim_time
+                if round(sim_time_left, decimals=2) <= 0:
+                    break
 
             # Step 1: Find all nodes which will attempt to start QKD this simulator round
             available_nodes = find_available_src_nodes(RG, node_schedule)
@@ -354,7 +364,11 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
             # Step 4: For all current QKD instances, continue operation
             if sim_time_left < round_time:
                 round_time = sim_time_left
-            to_add = continue_QKD(using_stn, active_qkd, info, qubit_rate, classic_time, round_time)
+            to_add = continue_QKD(using_stn, active_qkd, info, qubit_rate, classic_time, round_time, sim_keys)
+
+            # Check for loop end if using sim_keys
+            if to_add is None:
+                break
 
             # Step 5: Remove any finished QKD instances
             for qkd in active_qkd:
@@ -397,6 +411,11 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, round_time, N, Q, 
 if __name__ == "__main__":
     # Get parameters from cli
     args = parse_arguments()
+
+    # Ensure some terminating variable is set
+    if (args.sim_time == -1) and (args.sim_keys == -1):
+        print("\nError:\nBoth sim_time and sim_keys are disabled, but at least one needs to be enabled to run.")
+        exit(1)
 
     # Define variables to be used in math
     N = args.N
@@ -483,4 +502,4 @@ if __name__ == "__main__":
         exit()
     else:
         # Start simulator
-        main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
+        main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.sim_keys, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
