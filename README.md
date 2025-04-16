@@ -1,11 +1,9 @@
-# QKD-STN-Sim
-Run with "python Main.py" <br />
-(The above uses TNs, simulates 100,000,000 seconds, uses N of 10^7, Q of 0.02, px of 0.2, and quantum time, classic time, and round time of 10 sec) <br />
-(Use "python Main.py --stn" to use the same values but with STNs) <br />
+# QKD STN vs TN Network Simulator
 
-To use the simple simulator, use "python Main.py --simple" <br />
+To run the web-based UI, use webui-user.bat. <br />
+Alternatively, for the command-line version use "python Main.py". <br />
 
-Arguments: <br />
+Arguments for the command-line version file: <br />
 -h, --help <br />
 &emsp; Show help options. <br />
 -D <br />
