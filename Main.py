@@ -17,6 +17,137 @@ from Assets import *
 from Simple import * # type: ignore
 
 
+def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time):
+    """Setup variables to be used for simulation.
+
+    Args:
+      N: Number of rounds of communication within the quantum phase of QKD.
+      Q: Link-level noise in the system, as a decimal representation of a percentage.
+      px: Probability that the X basis is chosen in the quantum phase of QKD.
+      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
+      sim_time: Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner.
+      using_stn: Whether the simulator is using STNs.
+      graph: Network graph to use.
+      round_time: Amount of time (in ms) per sim round.
+      classic_time: Amount of time (in ms) for the classical phase of QKD.
+
+    Returns:
+      Dictionary of needed variables.
+    """
+    # Get parameters from cli
+    args = parse_arguments()
+
+    # Ensure some terminating variable is set
+    if (args.sim_time == -1) and (args.sim_keys == -1):
+        print("\nError:\nBoth sim_time and sim_keys are disabled, but at least one needs to be enabled to run.")
+        exit(1)
+
+    # Set variables passed by UI
+    if N is not None:
+        args.N = N
+    if Q is not None:
+        args.Q = Q
+    if px is not None:
+        args.px = px
+    if sim_time is not None:
+        args.sim_time = sim_time
+    if sim_keys is not None:
+        args.sim_keys = sim_keys
+    if using_stn is not None:
+        args.stn = using_stn
+    if graph is not None:
+        args.graph = graph
+    if round_time is not None:
+        args.round_time = round_time
+    if classic_time is not None:
+        args.classic_time = classic_time
+
+    # Determine test graph to use
+    cur_graph = args.graph
+
+    # Mapping of node names to neighbor names (and edge attributes)
+    if cur_graph == 0:
+        test_graph_dict = {
+            "a0": {"n0": {"weight": 1}},
+            "b0": {"n1": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
+            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
+        }
+    elif cur_graph == 1:
+        test_graph_dict = {
+            "a0": {"n0": {"weight": 1}},
+            "a1": {"n0": {"weight": 1}},
+            "b0": {"n0": {"weight": 1}},
+            "b1": {"n0": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
+        }
+    elif cur_graph == 2:
+        test_graph_dict = {
+            "a0": {"n0": {"weight": 1}},
+            "a1": {"n0": {"weight": 1}},
+            "b0": {"n1": {"weight": 1}},
+            "b1": {"n1": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "n1": {"weight": 1}},
+            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
+        }
+
+    # Record of which nodes are allowed to start QKD
+    source_nodes = [node for node in test_graph_dict.keys() if node.startswith('a')]
+
+    # Create Info_Tracker object and get information required for setup
+    info = Info_Tracker(source_nodes, args.N, args.Q, args.px)
+
+    # Mapping of node names to Node objects
+    if cur_graph == 0:
+        test_nodes = {"a0": User(name="a0"),
+                "b0": User(name="b0")}
+        if args.stn:
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
+            test_nodes["n1"] = TN(name="n1")
+    elif cur_graph == 1:
+        test_nodes = {"a0": User(name="a0"),
+                "a1": User(name="a1"),
+                "b0": User(name="b0"),
+                "b1": User(name="b1")}
+        if args.stn:
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
+    elif cur_graph == 2:
+        test_nodes = {"a0": User(name="a0"),
+                "a1": User(name="a1"),
+                "b0": User(name="b0"),
+                "b1": User(name="b1")}
+        if args.stn:
+            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
+            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
+        else:
+            test_nodes["n0"] = TN(name="n0")
+            test_nodes["n1"] = TN(name="n1")
+    
+    # Set graph based on desired test graph setup
+    graph_dict = test_graph_dict
+    nodes = test_nodes
+
+    # Make graph
+    G = Graph(graph_dict)
+    set_node_attributes(G, nodes, "data")
+
+    output = {
+        "args": args,
+        "G": G,
+        "nodes": nodes,
+        "graph_dict": graph_dict,
+        "info": info,
+        "src_nodes": source_nodes
+    }
+
+    return output
+
+
 def find_available_src_nodes(graph, nodes):
     """Find any source nodes in a graph which do not currently have a task.
 
@@ -289,25 +420,34 @@ def parse_arguments():
     return args
 
 
-def main(graph, nodes, graph_dict, info, using_stn, sim_time, sim_keys, round_time, N, Q, px, classic_time, debug, src_nodes=None):
+def main_sim(vars):
     """Entry point for the program.
     
     Args:
-      graph: NetworkX Graph of network.
-      nodes: Dict of node names and their respective Node objects
-      graph_dict: Dict of node names with their neighbors (and any edge attributes)
-      info: Info_Tracker object for tracking various statistics for this run of the simulator.
-      using_stn: Whether the simulator is using STNs.
-      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
-      sim_keys: Amount of keys to simulate, ignored if -1. Will stop early if sim_time is enabled and finishes sooner.
-      round_time: Amount of time (in ms) per sim round.
-      N: Number of rounds of communication within the quantum phase of QKD.
-      Q: Link-level noise in the system, as a decimal representation of a percentage.
-      px: Probability that the X basis is chosen in the quantum phase of QKD.
-      classic_time: Amount of time (in ms) for the classical phase of QKD.
-      debug: Whether or not debug messages should be printed.
-      src_nodes: What nodes are allowed to start the key generation process. Defaults to None.
+      vars: Dictionary containing needed variables.
+    
+    Returns:
+      Formatted string containing results of simulation.
     """
+    # Get setup variables
+    args = vars["args"]
+    graph = vars["G"]   # NetworkX graph of network
+    nodes = vars["nodes"]   # Dict of node names and their respective Node objects
+    graph_dict = vars["graph_dict"] # Dict of node names with their neighbors (and any edge attributes)
+    info = vars["info"] # Info_Tracker object for tracking various statisitics for this run of the simulator
+    src_nodes = vars["src_nodes"]   # What nodes are allowed to start the key generation process
+
+    # Get variables from argparse
+    using_stn = args.stn    # Whether the simulator is using STNs
+    sim_time = args.sim_time    # Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner
+    sim_keys = args.sim_keys    # Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner
+    round_time = args.round_time    # Amount of time (in ms) per sim round
+    N = args.N  # Number of rounds of communication within the quantum phase of QKD
+    Q = args.Q  # Link-level noise in the system, as a decimal representation of a percentage
+    px = args.px    # Probability that the X basis is chosen in the quantum phase of QKD
+    classic_time = args.classic_time    # Amount of time (in ms) for the classical phase of QKD
+    debug = args.D  # Whether or not debug messages should be printed
+
     # Define parameters
     RG = graph.copy()   # Copy graph to make running graph for use during simulation
     node_schedule = deepcopy(src_nodes)    # Copy of src_nodes, to be modified during simulation
@@ -402,104 +542,36 @@ def main(graph, nodes, graph_dict, info, using_stn, sim_time, sim_keys, round_ti
     sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_sim_time / 1000:,.2f} sec\nSimulator rounds: {rounds:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
     sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {info.finished_keys:,}\nKeys by user pair:\n"
     for user in info.user_pair_keys.keys():
-        sim_output += f"    {user}-b{user[1]}: {info.user_pair_keys[user]:,}\n"
+        sim_output += f"----[ {user}-b{user[1]} ]: {info.user_pair_keys[user]:,}\n"
     sim_output += f"Average key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n"
 
-    print(sim_output)
+    return sim_output
 
-# Run the simulator if this file is called
-if __name__ == "__main__":
-    # Get parameters from cli
-    args = parse_arguments()
+def run_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=None, simple=False, graph=None, round_time=None, classic_time=None):
+    """Entry point for program.
 
-    # Ensure some terminating variable is set
-    if (args.sim_time == -1) and (args.sim_keys == -1):
-        print("\nError:\nBoth sim_time and sim_keys are disabled, but at least one needs to be enabled to run.")
-        exit(1)
+    Args:
+      N: Number of rounds of communication within the quantum phase of QKD.
+      Q: Link-level noise in the system, as a decimal representation of a percentage.
+      px: Probability that the X basis is chosen in the quantum phase of QKD.
+      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
+      sim_time: Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner.
+      using_stn: Whether the simulator is using STNs.
+      simple: Whether to run the simple simulator. Defaults to False.
+      graph: Network graph to use.
+      round_time: Amount of time (in ms) per sim round.
+      classic_time: Amount of time (in ms) for the classical phase of QKD.
 
-    # Define variables to be used in math
-    N = args.N
-    Q = args.Q
-    px = args.px
-
-    # Determine test graph to use
-    cur_graph = args.graph
-
-    # Mapping of node names to neighbor names (and edge attributes)
-    if cur_graph == 0:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n1": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
-        }
-    elif cur_graph == 1:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "a1": {"n0": {"weight": 1}},
-            "b0": {"n0": {"weight": 1}},
-            "b1": {"n0": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
-        }
-    elif cur_graph == 2:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "a1": {"n0": {"weight": 1}},
-            "b0": {"n1": {"weight": 1}},
-            "b1": {"n1": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
-        }
-
-    # Record of which nodes are allowed to start QKD
-    source_nodes = [node for node in test_graph_dict.keys() if node.startswith('a')]
-
-    # Create Info_Tracker object and get information required for setup
-    info = Info_Tracker(source_nodes, N, Q, px)
-
-    # Mapping of node names to Node objects
-    if cur_graph == 0:
-        test_nodes = {"a0": User(name="a0"),
-                "b0": User(name="b0")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-            test_nodes["n1"] = TN(name="n1")
-    elif cur_graph == 1:
-        test_nodes = {"a0": User(name="a0"),
-                "a1": User(name="a1"),
-                "b0": User(name="b0"),
-                "b1": User(name="b1")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-    elif cur_graph == 2:
-        test_nodes = {"a0": User(name="a0"),
-                "a1": User(name="a1"),
-                "b0": User(name="b0"),
-                "b1": User(name="b1")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-            test_nodes["n1"] = TN(name="n1")
-    
-    # Set graph based on desired test graph setup
-    graph_dict = test_graph_dict
-    nodes = test_nodes
-
-    # Make graph
-    G = Graph(graph_dict)
-    set_node_attributes(G, nodes, "data")
-
-    if args.simple:
-        # Run simple simulation, then exit
-        simple_sim(G, N, Q, px, args.sim_time, args.stn) # type: ignore
-        exit()
+    Returns:
+      Formatted string containing information about simulation run.
+    """
+    vars = get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time)
+    if simple:
+        # Run simple simulation
+        return simple_sim(vars)
     else:
         # Start simulator
-        main(G, nodes, graph_dict, info, args.stn, args.sim_time, args.sim_keys, args.round_time, N, Q, px, args.classic_time, args.D, src_nodes=source_nodes)
+        return main_sim(vars)
+
+if __name__ == "__main__":
+    print(run_sim())

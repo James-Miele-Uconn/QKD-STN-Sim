@@ -1,17 +1,26 @@
 from numpy import sqrt, ceil, log, log2, log10
 from scipy.stats import binom
 
-def simple_sim(G, N, Q, px, sim_time, using_stn):
+def simple_sim(vars):
     """A simple simulator designed for a specific scenario.
 
     Args:
-      G: NetworkX Graph of network.
-      N: Number of rounds of communication within the quantum phase of QKD.
-      Q: Link-level noise in the system, as a decimal representation of a percentage.
-      px: Probability that the X basis is chosen in the quantum phase of QKD.
-      sim_time: Amount of time (in sec) that should be simulated in this run.
-      using_stn: Whether the simulator is using STNs.
+      vars: Dictionary containing needed variables.
+    
+    Returns:
+      Formatted string containing information about the simulation run.
     """
+    # Get setup variables
+    args = vars["args"]
+    G = vars["G"]   # NetworkX graph of network
+
+    # Get variables from argparse
+    N = args.N  # Number of rounds of communication within the quantum phase of QKD
+    Q = args.Q  # Link-level noise in the system, as a decimal representation of a percentage
+    px = args.px    # Probability that the X basis is chosen in the quantum phase of QKD
+    sim_time = args.sim_time    # Amount of time (in sec) that should be simulated in this run
+    using_stn = args.stn    # Whether the simulator is using STNs
+
     # Find time required for qubit generation
     photon_gen_rate = 10**9 / 1000.0                    # Pulse rate in miliseconds
     valid_prob = 10**(-3)                               # Probability of valid photon generation
@@ -165,7 +174,7 @@ def simple_sim(G, N, Q, px, sim_time, using_stn):
     sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_time / 1000:,.2f} sec\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
     sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {finished_keys:,}\nKeys by user pair:\n"
     for user in user_pair_keys.keys():
-        sim_output += f"    {user}-b{user[1]}: {user_pair_keys[user]:,}\n"
+        sim_output += f"----[ {user}-b{user[1]} ]: {user_pair_keys[user]:,}\n"
     sim_output += f"Average key rate: {average_key_rate:.4f}\nCost incurred: {total_cost:,.0f}\n"
 
-    print(sim_output)
+    return sim_output
