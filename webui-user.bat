@@ -1,2 +1,2 @@
 @echo off
-python webui.py
+start cmd /k python webui.py

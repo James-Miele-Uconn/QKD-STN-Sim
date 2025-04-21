@@ -9,12 +9,13 @@ from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, d
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import random as rand
-import argparse
+import argparse, os
 from numpy import round, log10, log2, log, ceil
-from time import time
+from time import time, strftime, gmtime
 from sys import exit
 from Assets import *
 from Simple import * # type: ignore
+from Graphs import * # type: ignore
 
 
 def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time):
@@ -65,84 +66,49 @@ def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic
     # Determine test graph to use
     cur_graph = args.graph
 
-    # Mapping of node names to neighbor names (and edge attributes)
-    if cur_graph == 0:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n1": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
-        }
-    elif cur_graph == 1:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "a1": {"n0": {"weight": 1}},
-            "b0": {"n0": {"weight": 1}},
-            "b1": {"n0": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
-        }
-    elif cur_graph == 2:
-        test_graph_dict = {
-            "a0": {"n0": {"weight": 1}},
-            "a1": {"n0": {"weight": 1}},
-            "b0": {"n1": {"weight": 1}},
-            "b1": {"n1": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
-        }
+    # Get graph dict
+    graph_dict = get_graph_dict(str(cur_graph))
 
     # Record of which nodes are allowed to start QKD
-    source_nodes = [node for node in test_graph_dict.keys() if node.startswith('a')]
+    source_nodes = [node for node in graph_dict.keys() if node.startswith('a')]
 
     # Create Info_Tracker object and get information required for setup
     info = Info_Tracker(source_nodes, args.N, args.Q, args.px)
 
-    # Mapping of node names to Node objects
-    if cur_graph == 0:
-        test_nodes = {"a0": User(name="a0"),
-                "b0": User(name="b0")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-            test_nodes["n1"] = TN(name="n1")
-    elif cur_graph == 1:
-        test_nodes = {"a0": User(name="a0"),
-                "a1": User(name="a1"),
-                "b0": User(name="b0"),
-                "b1": User(name="b1")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-    elif cur_graph == 2:
-        test_nodes = {"a0": User(name="a0"),
-                "a1": User(name="a1"),
-                "b0": User(name="b0"),
-                "b1": User(name="b1")}
-        if args.stn:
-            test_nodes["n0"] = STN(name="n0", neighbors=test_graph_dict["n0"].keys(), J=info.J)
-            test_nodes["n1"] = STN(name="n1", neighbors=test_graph_dict["n1"].keys(), J=info.J)
-        else:
-            test_nodes["n0"] = TN(name="n0")
-            test_nodes["n1"] = TN(name="n1")
-    
-    # Set graph based on desired test graph setup
-    graph_dict = test_graph_dict
-    nodes = test_nodes
+    # Get graph nodes
+    if using_stn:
+        graph_nodes = get_graph_nodes(graph_dict, info.J)
+    else:
+        graph_nodes = get_graph_nodes(graph_dict)
 
     # Make graph
     G = Graph(graph_dict)
-    set_node_attributes(G, nodes, "data")
+    set_node_attributes(G, graph_nodes, "data")
+
+    # Save figure for current graph
+    cur_time = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+    fname = f"Graph_{cur_graph}_{cur_time}.png"
+    if not os.path.exists("./graphs"):
+        try:
+            os.mkdir("./graphs")
+        except:
+            pass
+    if not os.path.exists(f"./graphs/{cur_graph}"):
+        try:
+            os.mkdir(f"./graphs/{cur_graph}")
+        except:
+            pass
+    draw(G)
+    plt.savefig(f"./graphs/{cur_graph}/{fname}")
 
     output = {
         "args": args,
         "G": G,
-        "nodes": nodes,
+        "graph_nodes": graph_nodes,
         "graph_dict": graph_dict,
         "info": info,
-        "src_nodes": source_nodes
+        "src_nodes": source_nodes,
+        "graph_image_name": fname
     }
 
     return output
@@ -432,10 +398,11 @@ def main_sim(vars):
     # Get setup variables
     args = vars["args"]
     graph = vars["G"]   # NetworkX graph of network
-    nodes = vars["nodes"]   # Dict of node names and their respective Node objects
+    nodes = vars["graph_nodes"]   # Dict of node names and their respective Node objects
     graph_dict = vars["graph_dict"] # Dict of node names with their neighbors (and any edge attributes)
     info = vars["info"] # Info_Tracker object for tracking various statisitics for this run of the simulator
     src_nodes = vars["src_nodes"]   # What nodes are allowed to start the key generation process
+    graph_image_name = vars["graph_image_name"]   # Name of graph image for current run
 
     # Get variables from argparse
     using_stn = args.stn    # Whether the simulator is using STNs
@@ -533,7 +500,26 @@ def main_sim(vars):
                     last_time = cur_time
     except:
         pass
-    
+
+    # Create information needed for output
+    if using_stn:
+        node_mode = "STN"
+    else:
+        node_mode = "TN"
+
+    # Create output
+    sim_output = {
+        "node_mode": node_mode,
+        "total_sim_time": total_sim_time,
+        "rounds": rounds,
+        "finished_keys": info.finished_keys,
+        "user_pair_keys": info.user_pair_keys,
+        "average_key_rate": info.average_key_rate,
+        "total_cost": info.total_cost,
+        "graph_image_name": graph_image_name
+    }
+
+    """
     sim_output = ""
     if using_stn:
         node_mode = "STN"
@@ -544,10 +530,11 @@ def main_sim(vars):
     for user in info.user_pair_keys.keys():
         sim_output += f"----[ {user}-b{user[1]} ]: {info.user_pair_keys[user]:,}\n"
     sim_output += f"Average key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n"
+    """
 
     return sim_output
 
-def run_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=None, simple=False, graph=None, round_time=None, classic_time=None):
+def start_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=None, simple=False, graph=None, round_time=None, classic_time=None):
     """Entry point for program.
 
     Args:
@@ -572,6 +559,3 @@ def run_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=Non
     else:
         # Start simulator
         return main_sim(vars)
-
-if __name__ == "__main__":
-    print(run_sim())

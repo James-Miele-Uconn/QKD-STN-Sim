@@ -1,1 +1,9 @@
+# Ignore pycache
 __pycache__/
+
+# Ignore graphs
+graphs/
+
+# Ignore customization other than needed files
+customization/
+!customization/favicon.png
