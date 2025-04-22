@@ -1,6 +1,18 @@
 from Assets import *
 
 
+single_pair_graphs = [
+    "One Node",
+    "Two Nodes",
+    "Three Nodes",
+    "Four Nodes"
+]
+simulation_graphs = [
+    "Single Node, Two User Pairs",
+    "Dumbell, Two Nodes, Two User Pairs"
+]
+
+
 def get_graph_dict(cur_graph):
     """Get dictionary of dictionaries for desired graph.
 
@@ -11,20 +23,40 @@ def get_graph_dict(cur_graph):
       Dictionary of dictionaries for desired graph setup.
     """
     graph_dicts = {
-        "0": {
+        "One Node": {
+            "a0": {"n0": {"weight": 1}},
+            "b0": {"n0": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "b0": {"weight": 1}},
+        },
+        "Two Nodes": {
             "a0": {"n0": {"weight": 1}},
             "b0": {"n1": {"weight": 1}},
             "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
             "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
         },
-        "1": {
+        "Three Nodes": {
+            "a0": {"n0": {"weight": 1}},
+            "b0": {"n2": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
+            "n1": {"n0": {"weight": 1}, "n2": {"weight": 1}},
+            "n2": {"n1": {"weight": 1}, "b0": {"weight": 1}}
+        },
+        "Four Nodes": {
+            "a0": {"n0": {"weight": 1}},
+            "b0": {"n3": {"weight": 1}},
+            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
+            "n1": {"n0": {"weight": 1}, "n2": {"weight": 1}},
+            "n2": {"n1": {"weight": 1}, "n3": {"weight": 1}},
+            "n3": {"n2": {"weight": 1}, "b0": {"weight": 1}}
+        },
+        "Single Node, Two User Pairs": {
             "a0": {"n0": {"weight": 1}},
             "a1": {"n0": {"weight": 1}},
             "b0": {"n0": {"weight": 1}},
             "b1": {"n0": {"weight": 1}},
             "n0": {"a0": {"weight": 1}, "a1": {"weight": 1}, "b0": {"weight": 1}, "b1": {"weight": 1}}
         },
-        "2": {
+        "Dumbell, Two Nodes, Two User Pairs": {
             "a0": {"n0": {"weight": 1}},
             "a1": {"n0": {"weight": 1}},
             "b0": {"n1": {"weight": 1}},

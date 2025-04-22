@@ -210,11 +210,18 @@ class Info_Tracker():
         self.finished_keys = 0
         self.total_cost = 0
         self.average_key_rate = 0
+        self.average_cost = 0
 
-        # Dictionary to track keys made by specific user pairs
-        self.user_pair_keys = dict()
+        # User pair stats to track
+        self.user_pair_keys = dict()  # Dictionary to track keys made by specific user pairs
+        self.user_pair_key_rate = dict()  # Dictionary to track average key rate for specific user pairs
+        self.user_pair_total_cost = dict()  # Dictionary to track total cost per bit made by specific user pairs
+        self.user_pair_average_cost = dict()  # Dictionary to track average cost per bit made by specific user pairs
         for node in source_nodes:
             self.user_pair_keys[node] = 0
+            self.user_pair_key_rate[node] = 0
+            self.user_pair_total_cost[node] = 0
+            self.user_pair_average_cost[node] = 0
 
         # Define variables to use for key rates
         self.m_vars = {'N': N, 'Q': Q, 'px': px, 'eps': 10**(-30), 'eps_abort': 10**(-10), 'eps_prime': 10**(-10)}
@@ -276,14 +283,6 @@ class Info_Tracker():
     def increase_finished_keys(self):
         """Increase the counter tracking the number of keys that have been finished."""
         self.finished_keys += 1
-    
-    def increase_user_pair_keys(self, source_node):
-        """Increase the counter tracking the number of keys that have been finished for a specific user pair.
-
-        Args:
-          source_node: The node whose counter should be increased
-        """
-        self.user_pair_keys[source_node] += 1
 
     def increase_cost(self, p, key_length, using_stn):
         """Increase the counter tracking the total cost incurred.
@@ -292,6 +291,9 @@ class Info_Tracker():
           p: Number of non-user nodes in the current QKD instance.
           key_length: Length of the key made by the current QKD instance.
           using_stn: Whether the non-user nodes are STNs.
+        
+        Returns:
+          Current cost that was used to increase counter.
         """
         if using_stn:
             # Find cost for current QKD instance and add it to total cost
@@ -306,8 +308,10 @@ class Info_Tracker():
             # Assuming EC(N, Q) = N
             cur_cost = (((2 * p) + 2) * self.m_vars['N']) / key_length
             self.total_cost += cur_cost
-    
-    def increase_key_rate(self, key_length):
+          
+        return cur_cost
+
+    def increase_average_key_rate(self, key_length):
         """Increase the counter tracking the average key rate.
 
         Args:
@@ -317,7 +321,61 @@ class Info_Tracker():
             self.average_key_rate = key_length / self.m_vars['N']
         else:
           self.average_key_rate += ((key_length / self.m_vars['N']) - self.average_key_rate) / self.finished_keys
-    
+
+    def increase_average_cost(self, cur_cost):
+        """Increase the counter tracking the average key rate.
+
+        Args:
+          cur_cost: The cost of the current QKD instance.
+        """
+        if self.average_cost == 0:
+            self.average_cost = cur_cost
+        else:
+          self.average_cost += (cur_cost - self.average_cost) / self.finished_keys
+
+    def increase_user_pair_keys(self, source_node):
+        """Increase the counter tracking the number of keys that have been finished for a specific user pair.
+
+        Args:
+          source_node: The node whose counter should be increased.
+        """
+        self.user_pair_keys[source_node] += 1
+
+    def increase_user_pair_key_rate(self, key_length, source_node):
+        """Increase the counter tracking the average key rate for a specific user pair.
+
+        Args:
+          key_length: Length of the key made by the current QKD instance.
+          source_node: The node whose counter should be increased.
+        """
+        cur_rate = self.user_pair_key_rate[source_node]
+        if cur_rate == 0:
+            self.user_pair_key_rate[source_node] = key_length / self.m_vars['N']
+        else:
+          self.user_pair_key_rate[source_node] += ((key_length / self.m_vars['N']) - cur_rate) / self.finished_keys
+
+    def increase_user_pair_total_cost(self, cur_cost, source_node):
+        """Increase the counter tracking the total cost per secret key bit for a specific user pair.
+
+        Args:
+          cur_cost: The cost of the current QKD instance.
+          source_node: The node whose counter should be increased.
+        """
+        self.user_pair_total_cost[source_node] += cur_cost
+
+    def increase_user_pair_average_cost(self, cur_cost, source_node):
+        """Increase the counter tracking the average cost per secret key bit for a specific user pair.
+
+        Args:
+          cur_cost: The cost of the current QKD instance.
+          source_node: The node whose counter should be increased.
+        """
+        cur_avg = self.user_pair_average_cost[source_node]
+        if cur_avg == 0:
+            self.user_pair_average_cost[source_node] = cur_cost
+        else:
+            self.user_pair_average_cost[source_node] += (cur_cost - cur_avg) / self.user_pair_keys[source_node]
+
     def increase_all(self, source_node, p, using_stn):
         """Increase all stats that are being tracked.
 
@@ -332,5 +390,9 @@ class Info_Tracker():
         if cur_key_length > 0:
           self.increase_finished_keys()
           self.increase_user_pair_keys(source_node)
-          self.increase_key_rate(cur_key_length)
-          self.increase_cost(p, cur_key_length, using_stn)
+          self.increase_average_key_rate(cur_key_length)
+          self.increase_user_pair_key_rate(cur_key_length, source_node)
+          cur_cost = self.increase_cost(p, cur_key_length, using_stn)
+          self.increase_average_cost(cur_cost)
+          self.increase_user_pair_total_cost(cur_cost, source_node)
+          self.increase_user_pair_average_cost(cur_cost, source_node)

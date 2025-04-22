@@ -1,6 +1,7 @@
 import gradio as gr # type: ignore
 import os
 from time import sleep
+from shutil import rmtree
 from Main import *
 
 # Global variables
@@ -56,6 +57,27 @@ def update_sim_limits(limit_vals):
     return [new_time, new_keys, new_msg, new_start]
 
 
+# Update grpah options
+def update_graph_options(graph_type):
+    if graph_type == "Simulation":
+        new_graph_opts = gr.Dropdown(simulation_graphs, value=simulation_graphs[0])
+    else:
+        new_graph_opts = gr.Dropdown(single_pair_graphs, value=single_pair_graphs[0])
+    
+    return new_graph_opts
+
+
+# Purge graph images
+def purge_graph_images():
+    if os.path.exists("./graphs"):
+        try:
+            rmtree("./graphs")
+        except Exception as e:
+            raise gr.Error(e)
+    
+    return gr.Image(value=None)
+
+
 # Run simulation
 def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time):
     """Run simulation with given variables.
@@ -75,23 +97,73 @@ def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, 
     Returns:
       Image of graph used and formatted information about simulation run.
     """
+    # Get results
     results = start_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time)
     graph_image_name = results["graph_image_name"]
 
+    # Save results to csv
+    if not os.path.exists("./results"):
+        try:
+            os.mkdir("./results")
+        except Exception as e:
+            raise gr.Error(e, duration=None)
+    try:
+        with open(f"./results/results_{results['cur_time']}.csv", "w", encoding="utf-8") as outf:
+            # Write headers
+            outf.write("Mode,Time_Simulated,Num_Rounds,N,Q,px,total_keys")
+            for user in sorted(list(results['user_pair_keys'].keys())):
+                outf.write(f",{user}-b{user[1:]}_keys")
+            outf.write(",avg_key_rate")
+            for user in sorted(list(results['user_pair_key_rate'].keys())):
+                outf.write(f",{user}-b{user[1:]}_key_rate")
+            outf.write(",total_cost")
+            for user in sorted(list(results['user_pair_total_cost'].keys())):
+                outf.write(f",{user}-b{user[1:]}_total_cost")
+            outf.write(",avg_cost")
+            for user in sorted(list(results['user_pair_average_cost'].keys())):
+                outf.write(f",{user}-b{user[1:]}_avg_cost")
+            
+            # Write values
+            outf.write(f"\n{results['node_mode']},{results['total_sim_time']},{results['rounds']},{N},{Q},{px},{results['finished_keys']}")
+            for user in sorted(list(results['user_pair_keys'].keys())):
+                outf.write(f",{results['user_pair_keys'][user]}")
+            outf.write(f",{results['average_key_rate']}")
+            for user in sorted(list(results['user_pair_key_rate'].keys())):
+                outf.write(f",{results['user_pair_key_rate'][user]}")
+            outf.write(f",{results['total_cost']}")
+            for user in sorted(list(results['user_pair_total_cost'].keys())):
+                outf.write(f",{results['user_pair_total_cost'][user]}")
+            outf.write(f",{results['average_cost']}")
+            for user in sorted(list(results['user_pair_average_cost'].keys())):
+                outf.write(f",{results['user_pair_average_cost'][user]}")
+    except Exception as e:
+        raise gr.Error(e, duration=None)
+
+    # Create formatted results to display
     sim_output = "\n[]-----[ Simulation Information ]-----[]"
     sim_output += f"\nNon-user nodes: {results['node_mode']}s"
     sim_output += f"\n\nTime simulated: {results['total_sim_time'] / 1000:,.2f} sec"
     sim_output += f"\nSimulator rounds: {results['rounds']:,}"
-    sim_output += f"\nRounds per quantum phase: {N:.0f}"
+    sim_output += f"\nRounds per quantum phase: {N:,.0f}"
     sim_output += f"\nLink-level noise: {Q * 100:.1f}%"
     sim_output += f"\nX-basis probability: {px}"
     sim_output += f"\n\n[]-----[ Efficiency Statistics ]-----[]"
     sim_output += f"\nTotal keys generated: {results['finished_keys']:,}"
     sim_output += f"\nKeys by user pair:"
-    for user in results['user_pair_keys'].keys():
-        sim_output += f"\n----[ {user}-b{user[1]} ]: {results['user_pair_keys'][user]:,}"
-    sim_output += f"\nAverage key rate: {results['average_key_rate']:.4f}"
-    sim_output += f"\nCost incurred: {results['total_cost']:,.0f}"
+    for user in sorted(list(results['user_pair_keys'].keys())):
+        sim_output += f"\n----[ {user}-b{user[1:]} ]: {results['user_pair_keys'][user]:,}"
+    sim_output += f"\n\nAverage key rate: {results['average_key_rate']:.4f}"
+    sim_output += f"\nAverage key rate by user pair:"
+    for user in sorted(list(results['user_pair_key_rate'].keys())):
+        sim_output += f"\n----[ {user}-b{user[1:]} ]: {results['user_pair_key_rate'][user]:.4f}"
+    sim_output += f"\n\nTotal cost incurred per secret key bit: {results['total_cost']:,.0f}"
+    sim_output += f"\nTotal per-bit cost by user pair:"
+    for user in sorted(list(results['user_pair_total_cost'].keys())):
+        sim_output += f"\n----[ {user}-b{user[1:]} ]: {results['user_pair_total_cost'][user]:,.0f}"
+    sim_output += f"\n\nAverage cost per secret key bit: {results['average_cost']:.2f}"
+    sim_output += f"\nAverage per-bit cost by user pair:"
+    for user in sorted(list(results['user_pair_average_cost'].keys())):
+        sim_output += f"\n----[ {user}-b{user[1:]} ]: {results['user_pair_average_cost'][user]:.2f}"
 
     return [gr.Markdown(value=sim_output), gr.Image(value=f"./graphs/{graph}/{graph_image_name}")]
 
@@ -155,7 +227,7 @@ def setup_layout(css, saved_color, theme):
         # Align both left and right together
         with gr.Row():
             # Settings
-            with gr.Column(scale=2):
+            with gr.Column(scale=1):
                 # Simulation control values
                 with gr.Group():
                     with gr.Row(equal_height=True):
@@ -201,24 +273,32 @@ def setup_layout(css, saved_color, theme):
                                 visible=False
                             )
 
-                # Other settings
+                # Graph settings
                 with gr.Row():
-                    graph = gr.Radio(
-                        [0, 1, 2],
-                        value=2,
-                        label="Graph",
-                        info="Which network graph to use",
+                    graph_type = gr.Radio(
+                        ["Simulation", "Single Pair"],
+                        value="Simulation",
+                        label="Graph Type",
+                        info="Which type of graph to use",
                         interactive=True
                     )
+                    graph = gr.Dropdown(
+                        simulation_graphs,
+                        value=simulation_graphs[0],
+                        label="Graph"
+                    )
+
+                # Other settings
+                with gr.Row():
                     round_time = gr.Number(
                         value=-1,
                         label="Round time",
-                        info="Miliseconds per simulator round, use -1 for classic time"
+                        info="Time (in ms) per simulator round\nUse -1 for classical time"
                     )
                     classic_time = gr.Number(
                         value=-1,
                         label="Classical time",
-                        info="Miliseconds for classical phase, use -1 for optimized value"
+                        info="Time (in ms) for classical phase\nUse -1 for optimized value"
                     )
 
                 # Cost equation values
@@ -226,7 +306,7 @@ def setup_layout(css, saved_color, theme):
                     N = gr.Number(
                         value=10000000,
                         label="N",
-                        info="Number of rounds in quantum phase"
+                        info="Rounds in quantum phase"
                     )
                     Q = gr.Number(
                         value=0.02,
@@ -240,26 +320,33 @@ def setup_layout(css, saved_color, theme):
                     )
 
             # Simulation control and results
-            with gr.Column(scale=1):
-                start_sim = gr.Button(
-                    value="Run Simulation",
-                    variant="primary",
-                    size="lg"
-                )
-                cur_graph = gr.Image(
-                    image_mode=None,
-                    type="filepath",
-                    label="Graph",
-                    show_download_button=False,
-                    placeholder="Graph image will appear here",
-                    interactive=False
-                )
-                results = gr.Markdown(
-                    value="Results will be shown here.",
-                    line_breaks=True,
-                    container=True,
-                    min_height=100
-                )
+            with gr.Column(scale=2):
+                with gr.Row():
+                    with gr.Column():
+                        cur_graph = gr.Image(
+                            image_mode=None,
+                            type="filepath",
+                            label="Graph",
+                            show_download_button=False,
+                            interactive=False
+                        )
+                        purge_graphs = gr.Button(
+                            value="Purge Graph Images",
+                            variant="stop"
+                        )
+
+                    with gr.Column():
+                        start_sim = gr.Button(
+                            value="Run Simulation",
+                            variant="primary",
+                            size="lg"
+                        )
+                        results = gr.Markdown(
+                            value="<center><h1>Results will be shown here.</h1></center>",
+                            line_breaks=True,
+                            container=True,
+                            min_height=100
+                        )
         
         # Customization options
         with gr.Sidebar(width=200, open=False, position="right"):
@@ -284,9 +371,13 @@ def setup_layout(css, saved_color, theme):
                     variant="stop"
                 )
 
-        # Handle main simulation options
+        # Handle simulation setup options
         sim_limits.change(update_sim_limits, inputs=[sim_limits], outputs=[sim_time, sim_keys, limit_msg, start_sim])
+        graph_type.change(update_graph_options, inputs=[graph_type], outputs=[graph])
+
+        # Handle main simulation options
         start_sim.click(run_sim, inputs=[N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time], outputs=[results, cur_graph])
+        purge_graphs.click(purge_graph_images, outputs=[cur_graph])
 
         # Handle customization options
         mode_js = theme_mode_js()

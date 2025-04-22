@@ -1,8 +1,9 @@
 # Ignore pycache
 __pycache__/
 
-# Ignore graphs
+# Ignore result items
 graphs/
+results/
 
 # Ignore customization other than needed files
 customization/

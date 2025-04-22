@@ -5,7 +5,7 @@ Multiple cost models will be used for analysis.
 To show graph: draw(G), plt.show() ### Must be done in cmd, else it won't work
 """
 
-from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, draw # type: ignore
+from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, kamada_kawai_layout, draw_networkx_edges, draw_networkx_nodes, draw_networkx_labels # type: ignore
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import random as rand
@@ -18,10 +18,11 @@ from Simple import * # type: ignore
 from Graphs import * # type: ignore
 
 
-def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time):
+def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time):
     """Setup variables to be used for simulation.
 
     Args:
+      cur_time: Time as of the start of the simulator.
       N: Number of rounds of communication within the quantum phase of QKD.
       Q: Link-level noise in the system, as a decimal representation of a percentage.
       px: Probability that the X basis is chosen in the quantum phase of QKD.
@@ -67,7 +68,7 @@ def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic
     cur_graph = args.graph
 
     # Get graph dict
-    graph_dict = get_graph_dict(str(cur_graph))
+    graph_dict = get_graph_dict(cur_graph)
 
     # Record of which nodes are allowed to start QKD
     source_nodes = [node for node in graph_dict.keys() if node.startswith('a')]
@@ -86,7 +87,6 @@ def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic
     set_node_attributes(G, graph_nodes, "data")
 
     # Save figure for current graph
-    cur_time = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
     fname = f"Graph_{cur_graph}_{cur_time}.png"
     if not os.path.exists("./graphs"):
         try:
@@ -98,10 +98,22 @@ def get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic
             os.mkdir(f"./graphs/{cur_graph}")
         except:
             pass
-    draw(G)
+    pos = kamada_kawai_layout(G)
+    user_nodes = source_nodes + [f"b{node[1]}" for node in source_nodes]
+    inner_nodes = [node for node in graph_nodes.keys() if node not in user_nodes]
+    labels = dict()
+    for node in graph_nodes.keys():
+        labels[node] = node
+    draw_networkx_nodes(G, pos, nodelist=user_nodes, node_color="tab:red")
+    draw_networkx_nodes(G, pos, nodelist=inner_nodes, node_color="tab:blue")
+    draw_networkx_edges(G, pos)
+    draw_networkx_labels(G, pos, labels)
+    plt.tight_layout()
+    plt.axis("off")
     plt.savefig(f"./graphs/{cur_graph}/{fname}")
 
     output = {
+        "cur_time": cur_time,
         "args": args,
         "G": G,
         "graph_nodes": graph_nodes,
@@ -373,7 +385,7 @@ def parse_arguments():
     parser.add_argument("-D", help="\tprint debug messages.", action="store_true")
     parser.add_argument("--stn", help="\tuse STNs instead of TNs.", action="store_true")
     parser.add_argument("--simple", help="\trun the simple simulator, then exit.", action="store_true")
-    parser.add_argument("--graph", metavar="", help="\twhich graph to use. Defaults to 2 for graph 2.", default=2, type=int)
+    parser.add_argument("--graph", metavar="", help="\twhich graph to use. Defaults to Dumbell: Two Nodes, Two User Pairs.", default="Dumbell: Two Nodes, Two User Pairs", type=str)
     parser.add_argument("--sim_time", metavar="", help="\tamount of time (in sec) that should be simulated in this run, set to -1 to disable. Defaults to 100000000 sec.", default=10000000, type=float)
     parser.add_argument("--sim_keys", metavar="", help="\tnumber of keys that should be simulated in this run, set to -1 to disable. Defaults to -1.", default=-1, type=int)
     parser.add_argument("--round_time", metavar="", help="\tamount of time (in ms) per sim round. Defaults to -1, to match max of quantum or classic time.", default=-1, type=float)
@@ -509,28 +521,20 @@ def main_sim(vars):
 
     # Create output
     sim_output = {
+        "cur_time": vars["cur_time"],
         "node_mode": node_mode,
         "total_sim_time": total_sim_time,
         "rounds": rounds,
         "finished_keys": info.finished_keys,
         "user_pair_keys": info.user_pair_keys,
         "average_key_rate": info.average_key_rate,
+        "user_pair_key_rate": info.user_pair_key_rate,
         "total_cost": info.total_cost,
+        "average_cost": info.average_cost,
+        "user_pair_total_cost": info.user_pair_total_cost,
+        "user_pair_average_cost": info.user_pair_average_cost,
         "graph_image_name": graph_image_name
     }
-
-    """
-    sim_output = ""
-    if using_stn:
-        node_mode = "STN"
-    else:
-        node_mode = "TN"
-    sim_output += f"\n[]-----[ Simulation Information ]-----[]\nNon-user nodes: {node_mode}s\n\nTime simulated: {total_sim_time / 1000:,.2f} sec\nSimulator rounds: {rounds:,}\nRounds per quantum phase: 10^{log10(N):.0f}\nLink-level noise: {Q * 100:.1f}%\nX-basis probability: {px}\n"
-    sim_output += f"\n[]-----[ Efficiency Statistics ]-----[]\nTotal keys generated: {info.finished_keys:,}\nKeys by user pair:\n"
-    for user in info.user_pair_keys.keys():
-        sim_output += f"----[ {user}-b{user[1]} ]: {info.user_pair_keys[user]:,}\n"
-    sim_output += f"Average key rate: {info.average_key_rate:.4f}\nCost incurred: {info.total_cost:,.0f}\n"
-    """
 
     return sim_output
 
@@ -552,7 +556,8 @@ def start_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=N
     Returns:
       Formatted string containing information about simulation run.
     """
-    vars = get_vars(N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time)
+    cur_time = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+    vars = get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph, round_time, classic_time)
     if simple:
         # Run simple simulation
         return simple_sim(vars)
