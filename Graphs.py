@@ -1,54 +1,30 @@
 from Assets import *
 
 
-single_pair_graphs = [
-    "One Node",
-    "Two Nodes",
-    "Three Nodes",
-    "Four Nodes"
+chain_graphs = [
+    "1 Node",
+    "2 Nodes",
+    "3 Nodes",
+    "4 Nodes"
 ]
-simulation_graphs = [
+specific_graphs = [
     "Single Node, Two User Pairs",
     "Dumbell, Two Nodes, Two User Pairs"
 ]
 
 
-def get_graph_dict(cur_graph):
+def get_graph_dict(graph_type, cur_graph, num_users):
     """Get dictionary of dictionaries for desired graph.
 
     Args:
+      graph_type: What type of graph to use.
       cur_graph: Which graph dictionary to use
+      num_users: How many user pairs are in the graph
     
     Returns:
       Dictionary of dictionaries for desired graph setup.
     """
-    graph_dicts = {
-        "One Node": {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n0": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "b0": {"weight": 1}},
-        },
-        "Two Nodes": {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n1": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "b0": {"weight": 1}}
-        },
-        "Three Nodes": {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n2": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "n2": {"weight": 1}},
-            "n2": {"n1": {"weight": 1}, "b0": {"weight": 1}}
-        },
-        "Four Nodes": {
-            "a0": {"n0": {"weight": 1}},
-            "b0": {"n3": {"weight": 1}},
-            "n0": {"a0": {"weight": 1}, "n1": {"weight": 1}},
-            "n1": {"n0": {"weight": 1}, "n2": {"weight": 1}},
-            "n2": {"n1": {"weight": 1}, "n3": {"weight": 1}},
-            "n3": {"n2": {"weight": 1}, "b0": {"weight": 1}}
-        },
+    specific_graph_dicts = {
         "Single Node, Two User Pairs": {
             "a0": {"n0": {"weight": 1}},
             "a1": {"n0": {"weight": 1}},
@@ -66,7 +42,35 @@ def get_graph_dict(cur_graph):
         }
     }
 
-    return graph_dicts[cur_graph]
+    if graph_type == "Specific":
+        graph_dict = specific_graph_dicts[cur_graph]
+    elif graph_type == "Chain":
+        graph_dict = dict()
+        num_inner = int(cur_graph.split(" ")[0])
+        first_inner_dict = dict()
+        last_inner_dict = dict()
+        
+        for i in range(num_users):
+            graph_dict[f"a{i}"] = {"n0": {"weight": 1}}
+            first_inner_dict[f"a{i}"] = {"weight": 1}
+            graph_dict[f"b{i}"] = {f"n{num_inner-1}": {"weight": 1}}
+            last_inner_dict[f"b{i}"] = {"weight": 1}
+
+        for i in range(1, num_inner-1):
+            graph_dict[f"n{i}"] = {f"n{i-1}": {"weight": 1}, f"n{i+1}": {"weight": 1}}
+
+        if num_inner == 1:
+            first_inner_dict.update(last_inner_dict)
+            graph_dict["n0"] = first_inner_dict
+        else:
+            first_inner_dict["n1"] = {"weight": 1}
+            last_inner_dict[f"n{num_inner-2}"] = {"weight": 1}
+            graph_dict["n0"] = first_inner_dict
+            graph_dict[f"n{num_inner-1}"] = last_inner_dict
+    else:
+        graph_dict = None
+
+    return graph_dict
 
 
 def get_graph_nodes(graph_dict, J=None):

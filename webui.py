@@ -59,10 +59,12 @@ def update_sim_limits(limit_vals):
 
 # Update grpah options
 def update_graph_options(graph_type):
-    if graph_type == "Simulation":
-        new_graph_opts = gr.Dropdown(simulation_graphs, value=simulation_graphs[0])
+    if graph_type == "Chain":
+        new_graph_opts = gr.Dropdown(chain_graphs, value=chain_graphs[0])
+    elif graph_type == "Specific":
+        new_graph_opts = gr.Dropdown(specific_graphs, value=specific_graphs[0])
     else:
-        new_graph_opts = gr.Dropdown(single_pair_graphs, value=single_pair_graphs[0])
+        new_graph_opts = gr.Dropdown()
     
     return new_graph_opts
 
@@ -74,12 +76,24 @@ def purge_graph_images():
             rmtree("./graphs")
         except Exception as e:
             raise gr.Error(e)
-    
+
+    gr.Info("Graph images removed")    
     return gr.Image(value=None)
 
 
+# Purge result csv files
+def purge_result_csvs():
+    if os.path.exists("./results"):
+        try:
+            rmtree("./results")
+        except Exception as e:
+            raise gr.Error(e)
+    
+    gr.Info("Result CSV files removed")
+
+
 # Run simulation
-def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time):
+def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, round_time, classic_time):
     """Run simulation with given variables.
 
     Args:
@@ -90,7 +104,9 @@ def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, 
       sim_time: Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner.
       using_stn: Whether the simulator is using STNs.
       simple: Whether to run the simple simulator. Defaults to False.
+      graph_type: What type of graph to use.
       graph: Network graph to use.
+      num_users: Number of user nodes in the network.
       round_time: Amount of time (in ms) per sim round.
       classic_time: Amount of time (in ms) for the classical phase of QKD.
 
@@ -98,7 +114,7 @@ def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, 
       Image of graph used and formatted information about simulation run.
     """
     # Get results
-    results = start_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time)
+    results = start_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, round_time, classic_time)
     graph_image_name = results["graph_image_name"]
 
     # Save results to csv
@@ -235,7 +251,7 @@ def setup_layout(css, saved_color, theme):
                         with gr.Column():
                             using_stn = gr.Checkbox(
                                 label="Use STNs",
-                                info="Use STNs as intermediat nodes if checked, otherwise use TNs",
+                                info="Use STNs as intermediate nodes if checked, otherwise use TNs",
                                 value=False
                             )
                             simple = gr.Checkbox(
@@ -275,17 +291,21 @@ def setup_layout(css, saved_color, theme):
 
                 # Graph settings
                 with gr.Row():
-                    graph_type = gr.Radio(
-                        ["Simulation", "Single Pair"],
-                        value="Simulation",
+                    graph_type = gr.Dropdown(
+                        ["Chain", "Specific", "Random"],
+                        value="Chain",
                         label="Graph Type",
-                        info="Which type of graph to use",
                         interactive=True
                     )
                     graph = gr.Dropdown(
-                        simulation_graphs,
-                        value=simulation_graphs[0],
+                        chain_graphs,
+                        value=chain_graphs[0],
                         label="Graph"
+                    )
+                    num_users = gr.Number(
+                        value=2,
+                        label="Number of User Pairs",
+                        interactive=True
                     )
 
                 # Other settings
@@ -311,12 +331,14 @@ def setup_layout(css, saved_color, theme):
                     Q = gr.Number(
                         value=0.02,
                         label="Q",
-                        info="Link-level noise in the system"
+                        info="Link-level noise in the system",
+                        step=None
                     )
                     px = gr.Number(
                         value=0.2,
                         label="px",
-                        info="Probability of choosing X basis in quantum phase"
+                        info="Probability of choosing X basis in quantum phase",
+                        step=None
                     )
 
             # Simulation control and results
@@ -330,10 +352,15 @@ def setup_layout(css, saved_color, theme):
                             show_download_button=False,
                             interactive=False
                         )
-                        purge_graphs = gr.Button(
-                            value="Purge Graph Images",
-                            variant="stop"
-                        )
+                        with gr.Row():
+                            purge_graphs = gr.Button(
+                                value="Purge Graph Images",
+                                variant="stop"
+                            )
+                            purge_results = gr.Button(
+                                value="Purge Results",
+                                variant="stop"
+                            )
 
                     with gr.Column():
                         start_sim = gr.Button(
@@ -376,8 +403,9 @@ def setup_layout(css, saved_color, theme):
         graph_type.change(update_graph_options, inputs=[graph_type], outputs=[graph])
 
         # Handle main simulation options
-        start_sim.click(run_sim, inputs=[N, Q, px, sim_time, sim_keys, using_stn, simple, graph, round_time, classic_time], outputs=[results, cur_graph])
+        start_sim.click(run_sim, inputs=[N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, round_time, classic_time], outputs=[results, cur_graph])
         purge_graphs.click(purge_graph_images, outputs=[cur_graph])
+        purge_results.click(purge_result_csvs)
 
         # Handle customization options
         mode_js = theme_mode_js()
