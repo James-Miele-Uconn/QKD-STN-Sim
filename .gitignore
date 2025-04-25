@@ -6,5 +6,4 @@ graphs/
 results/
 
 # Ignore customization other than needed files
-customization/
-!customization/favicon.png
+customization/theme_color.txt
