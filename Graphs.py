@@ -1,6 +1,9 @@
 from Assets import *
 
 
+random_graphs = [
+    "Grid"
+]
 chain_graphs = [
     "1 Node",
     "2 Nodes",

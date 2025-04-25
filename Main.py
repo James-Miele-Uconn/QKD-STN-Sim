@@ -41,11 +41,6 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
     # Get parameters from cli
     args = parse_arguments()
 
-    # Ensure some terminating variable is set
-    if (args.sim_time == -1) and (args.sim_keys == -1):
-        print("\nError:\nBoth sim_time and sim_keys are disabled, but at least one needs to be enabled to run.")
-        exit(1)
-
     # Set variables passed by UI
     if N is not None:
         args.N = N
@@ -525,6 +520,9 @@ def main_sim(vars):
     sim_output = {
         "cur_time": vars["cur_time"],
         "node_mode": node_mode,
+        "N": N,
+        "Q": Q,
+        "px": px,
         "total_sim_time": total_sim_time,
         "rounds": rounds,
         "finished_keys": info.finished_keys,
@@ -540,27 +538,29 @@ def main_sim(vars):
 
     return sim_output
 
-def start_sim(N=None, Q=None, px=None, sim_time=None, sim_keys=None, using_stn=None, simple=False, graph_type=None, graph=None, num_users=None, round_time=None, classic_time=None):
+def start_sim(in_dict):
     """Entry point for program.
 
     Args:
-      N: Number of rounds of communication within the quantum phase of QKD.
-      Q: Link-level noise in the system, as a decimal representation of a percentage.
-      px: Probability that the X basis is chosen in the quantum phase of QKD.
-      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
-      sim_time: Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner.
-      using_stn: Whether the simulator is using STNs.
-      simple: Whether to run the simple simulator. Defaults to False.
-      graph_type: What type of graph to use.
-      graph: Network graph to use.
-      num_users: Number of user nodes in the network.
-      round_time: Amount of time (in ms) per sim round.
-      classic_time: Amount of time (in ms) for the classical phase of QKD.
+      in_dict: Dictionary containing all needed variables.
 
     Returns:
       Formatted string containing information about simulation run.
     """
-    cur_time = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+    N = in_dict["N"]
+    Q = in_dict["Q"]
+    px = in_dict["px"]
+    sim_time = in_dict["sim_time"]
+    sim_keys = in_dict["sim_keys"]
+    using_stn = in_dict["using_stn"]
+    simple = in_dict["simple"]
+    graph_type = in_dict["graph_type"]
+    graph = in_dict["graph"]
+    num_users = in_dict["num_users"]
+    round_time = in_dict["round_time"]
+    classic_time = in_dict["classic_time"]
+    cur_time = in_dict["cur_time"]
+
     vars = get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, graph, num_users, round_time, classic_time)
     if simple:
         # Run simple simulation
