@@ -10,6 +10,7 @@ def get_graph_lists():
       Dictionary containing all lists of graphs.
     """
     random_graphs = [
+        "5x5 Grid",
         "10x10 Grid",
         "25x25 Grid",
         "50x50 Grid"
