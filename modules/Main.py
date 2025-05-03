@@ -1,4 +1,4 @@
-from networkx import Graph, set_node_attributes, has_path, all_shortest_paths, kamada_kawai_layout, draw_networkx_edges, draw_networkx_nodes, draw_networkx_labels # type: ignore
+from networkx import Graph, set_node_attributes, has_path, shortest_path, kamada_kawai_layout, draw_networkx_edges, draw_networkx_nodes, draw_networkx_labels # type: ignore
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import argparse, os
@@ -59,12 +59,13 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
     if graph_type == "Random":
         G = make_grid_graph(cur_graph, num_users)
         graph_dict = nx.to_dict_of_dicts(G)
+
     else:
         graph_dict = get_graph_dict(graph_type, cur_graph, num_users)
         G = Graph(graph_dict)
 
     # Record of which nodes are allowed to start QKD
-    source_nodes = [node for node in graph_dict.keys() if node.startswith('a')]
+    source_nodes = sorted([node for node in graph_dict.keys() if node.startswith('a')])
 
     # Create Info_Tracker object and get information required for setup
     info = Info_Tracker(source_nodes, args.N, args.Q, args.px)
@@ -182,74 +183,54 @@ def adjust_schedule(node_schedule, newest_active):
     return new_schedule
 
 
-def determine_routes(graph, nodes):
+def determine_routes(graph, nodes, src_nodes):
     """Determine optimal routes to allow as many new QKD instances as possible.
 
     Args:
       graph: Graph to look for paths in.
       nodes: List of nodes which want to start QKD.
+      src_nodes: List of all source nodes in network.
 
     Returns:
       List of paths to use for new QKD instances.
-    """
-    best_paths = list()     # List for tracking which routes will be used
-    used_nodes = set()      # Set for ensuring chosen routes do not use overlapping nodes
+    """    
+    best_paths = list()
 
+    # For each node that should try starting QKD, attempt to find best route
     for node in nodes:
-        # Find destination
-        dest = f"b{node[1]}"
+        src = node
+        dst = f"b{src[1:]}"
 
-        # If no path to destination exists, skip node
-        if not (graph.has_node(node) and graph.has_node(dest) and has_path(graph, node, dest)):
-            continue
+        # Create list of user nodes that are not the current user pair
+        cur_src_node = src_nodes.index(src)
+        non_cur_users = [n for i, n in enumerate(src_nodes) if (i != cur_src_node)]
+        non_cur_users += [f"b{n[1:]}" for i, n in enumerate(src_nodes) if (i != cur_src_node)]
 
-        # Find all shortest paths from source to dest in given graph
-        paths = [p for p in all_shortest_paths(graph, source=node, target=dest)]
+        # Remove any edges connected to user nodes that are not the current user pair
+        to_remove = [e for e in graph.edges(data=True) if ((e[0] in non_cur_users) or (e[1] in non_cur_users))]
+        cur_graph = deepcopy(graph)
+        cur_graph.remove_edges_from(to_remove)
 
-        # Find best path to use
-        desired_path = paths[0]
+        # Find the best path for the current src and dst nodes, if a path exists
+        if has_path(cur_graph, src, dst):
+            # Get shortest path
+            try:
+                    cur_path = shortest_path(cur_graph, source=src, target=dst)
+            except Exception as e:
+                raise Exception(e)
 
-        # Check if any node in path has already been slated for use
-        path_viable = True
-        for path_node in desired_path:
-            if path_node in used_nodes:
-                path_viable = False
-                break
-        
-        # If path is available, add path to best_paths and nodes to used_nodes
-        # Else, do nothing
-        if path_viable:
-            # Update schedule of nodes
-            nodes.append(node)
-            nodes.remove(node)
+            # Add back edges to non-current user-pair nodes
+            #graph.add_edges_from(to_remove)
 
-            # Lock in path as being used
-            best_paths.append(desired_path)
-            used_nodes.update(desired_path)
-    
+            # Create a list of node objects for the current route, and add to best paths
+            cur_nodes = [graph.nodes[cur_node]["data"] for cur_node in cur_path]
+            best_paths.append(cur_nodes)
+
+            # Remove nodes used in current path from running graph
+            for n in cur_path:
+                graph.remove_node(n)
+
     return best_paths
-
-
-def remove_and_store_new_QKD(graph, routes):
-    """Remove nodes involved in new QKD instances from given graph.
-
-    Args:
-      graph: Graph to remove nodes from.
-      routes: List of routes to be removed from graph.
-    
-    Returns:
-      List of Node objects based on given routes.
-    """
-    route_nodes = list()    # List of lists of Node objects in each route
-
-    for route in routes:
-        cur_nodes = list()  # List to hold Node objects for each node in current route
-        for node in route:
-            cur_nodes.append(graph.nodes[node]["data"])     # Add Node object for current node
-            graph.remove_node(node)
-        route_nodes.append(cur_nodes)
-    
-    return route_nodes
 
 
 def continue_QKD(using_stn, current_qkd, info, quantum_time, classic_time, round_time, sim_keys):
@@ -464,12 +445,12 @@ def main_sim(vars):
 
             # Step 1: Find all nodes which will attempt to start QKD this simulator round
             available_nodes = find_available_src_nodes(RG, node_schedule)
-            new_keys = determine_new_keys(available_nodes)        
+            new_keys = determine_new_keys(available_nodes)  
             
             # Step 2: Find all routes to use for starting new QKD instances
-            new_routes = determine_routes(RG, new_keys)
-            route_nodes = remove_and_store_new_QKD(RG, new_routes)
-            node_schedule = adjust_schedule(node_schedule, new_routes)
+            new_routes = determine_routes(RG, new_keys, src_nodes)
+            route_nodes = new_routes
+            node_schedule = adjust_schedule(node_schedule, [[node.name for node in route] for route in new_routes])
 
             # Step 3: Handle newly started QKD instances
             for route in route_nodes:
@@ -485,9 +466,12 @@ def main_sim(vars):
                 break
 
             # Step 5: Remove any finished QKD instances
+            to_remove = list()
             for qkd in active_qkd:
                 if qkd.is_finished():
-                    active_qkd.remove(qkd)
+                    to_remove.append(qkd)
+            for qkd in to_remove:
+                active_qkd.remove(qkd)
             
             # Step 6: Add any freed nodes back into the running graph
             for node in to_add:
@@ -500,11 +484,9 @@ def main_sim(vars):
             # Step 7: Track time passed in this simulator round
             total_sim_time += round_time
             rounds += 1
-            if debug:
-                cur_time = time() - start_time
-                if ((cur_time - last_time) > 15):
-                    print(f"[{cur_time//60:2.0f}m {cur_time%60:4.1f}s] {rounds:,} rounds finished, {total_sim_time / 1000:,.2f} sec passed.")
-                    last_time = cur_time
+            if (rounds == (5 * len(src_nodes))) and (info.finished_keys == 0):
+                break
+            
     except Exception as e:
         raise Exception(e)
 
