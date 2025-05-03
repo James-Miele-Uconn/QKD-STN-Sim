@@ -92,7 +92,8 @@ def setup_layout(css, saved_color, theme):
                             simple = gr.Checkbox(
                                 label="Simple Simulator",
                                 info="Run the simple simulator",
-                                value=False
+                                value=False,
+                                visible=False
                             )
 
                         # Control for which options are shown
