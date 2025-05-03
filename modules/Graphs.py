@@ -1,19 +1,37 @@
-from Assets import *
+import networkx as nx # type: ignore
+from random import randint
+from .Assets import *
 
 
-random_graphs = [
-    "Grid"
-]
-chain_graphs = [
-    "1 Node",
-    "2 Nodes",
-    "3 Nodes",
-    "4 Nodes"
-]
-specific_graphs = [
-    "Single Node, Two User Pairs",
-    "Dumbell, Two Nodes, Two User Pairs"
-]
+def get_graph_lists():
+    """Get predefined graph lists.
+
+    Returns:
+      Dictionary containing all lists of graphs.
+    """
+    random_graphs = [
+        "10x10 Grid",
+        "25x25 Grid",
+        "50x50 Grid"
+    ]
+    chain_graphs = [
+        "1 Node",
+        "2 Nodes",
+        "3 Nodes",
+        "4 Nodes"
+    ]
+    specific_graphs = [
+        "Single Node, Two User Pairs",
+        "Dumbell, Two Nodes, Two User Pairs"
+    ]
+
+    graphs = {
+        "random_graphs": random_graphs,
+        "chain_graphs": chain_graphs,
+        "specific_graphs": specific_graphs
+    }
+
+    return graphs
 
 
 def get_graph_dict(graph_type, cur_graph, num_users):
@@ -21,8 +39,8 @@ def get_graph_dict(graph_type, cur_graph, num_users):
 
     Args:
       graph_type: What type of graph to use.
-      cur_graph: Which graph dictionary to use
-      num_users: How many user pairs are in the graph
+      cur_graph: Which graph dictionary to use.
+      num_users: How many user pairs are in the graph.
     
     Returns:
       Dictionary of dictionaries for desired graph setup.
@@ -74,6 +92,55 @@ def get_graph_dict(graph_type, cur_graph, num_users):
         graph_dict = None
 
     return graph_dict
+
+
+def make_grid_graph(cur_graph, num_users):
+    """Create a 2d networkx grid graph, with user nodes randomly placed.
+
+    Args:
+      cur_graph: Specific grid graph to make.
+      num_users: How many user pairs are in the graph.
+
+    Returns:
+      2d networkx grid graph.
+    """
+    # Set up general graph
+    dims = cur_graph.split(" ")[0].split("x")
+    rows = int(dims[0])
+    cols = int(dims[1])
+    G = nx.grid_2d_graph(rows, cols)
+
+    # Create set of random locations for users
+    unique_locs = set()
+    while len(unique_locs) < (2 * num_users):
+        x = randint(0, (rows-1))
+        y = randint(0, (cols-1))
+        if (x, y) in unique_locs:
+            continue
+        unique_locs.add((x, y))
+
+    # Create override dict for non-user nodes
+    non_user_dict = dict()
+    non_user_counter = 0
+    for r in range(rows):
+        for c in range(cols):
+            cur_loc = (r, c)
+            if cur_loc in unique_locs:
+                continue
+            non_user_dict[cur_loc] = f"n{non_user_counter}"
+            non_user_counter += 1
+
+    # Create override dict for user nodes
+    user_dict = dict()
+    for i in range(num_users):
+        user_dict[unique_locs.pop()] = f"a{i}"
+        user_dict[unique_locs.pop()] = f"b{i}"
+    
+    G = nx.relabel_nodes(G, non_user_dict)
+    G = nx.relabel_nodes(G, user_dict)
+    nx.set_edge_attributes(G, 1, name="weight")
+
+    return G
 
 
 def get_graph_nodes(graph_dict, J=None):
