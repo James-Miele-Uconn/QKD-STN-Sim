@@ -154,7 +154,7 @@ def setup_layout(css, saved_color, theme):
                     round_time = gr.Number(
                         value=-1,
                         label="Round time",
-                        info="Time (in ms) per simulator round\nUse -1 for classical time"
+                        info="Time (in ms) per simulator round\nUse -1 for min of quantum or classical time"
                     )
                     classic_time = gr.Number(
                         value=-1,
