@@ -1,4 +1,4 @@
-from numpy import log, log2, sqrt, ceil
+from numpy import log, log2, sqrt, ceil, isnan
 from scipy.stats import binom
 
 class Node:
@@ -243,6 +243,8 @@ class Info_Tracker():
 
         # Key-rate dependent info
         self.J = (self.key_length_TN - log2(N)) / log2(N)
+        if isnan(self.J):
+            self.J = 0
 
     def find_key_length(self, p, using_stn):
         """Find the length of the key for a QKD instance with the given number of nodes.

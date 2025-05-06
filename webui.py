@@ -126,22 +126,27 @@ def setup_layout(css, saved_color, theme):
                             )
 
                 # Graph settings
-                with gr.Row():
-                    graph_type = gr.Dropdown(
-                        ["Chain", "Specific", "Random"],
-                        value="Chain",
-                        label="Graph Type",
-                        interactive=True
-                    )
-                    graph = gr.Dropdown(
-                        chain_graphs,
-                        value=chain_graphs[0],
-                        label="Graph"
-                    )
-                    num_users = gr.Number(
-                        value=2,
-                        label="Number of User Pairs",
-                        interactive=True
+                with gr.Group():
+                    with gr.Row():
+                        graph_type = gr.Dropdown(
+                            ["Chain", "Specific", "Random"],
+                            value="Chain",
+                            label="Graph Type",
+                            interactive=True
+                        )
+                        graph = gr.Dropdown(
+                            chain_graphs,
+                            value=chain_graphs[0],
+                            label="Graph"
+                        )
+                        num_users = gr.Number(
+                            value=2,
+                            label="Number of User Pairs",
+                            interactive=True
+                        )
+                    saved_graph = gr.File(
+                        label="Upload Graph File",
+                        height=120
                     )
 
                 # Other settings
@@ -228,17 +233,18 @@ def setup_layout(css, saved_color, theme):
                                 value="Purge Graph Images",
                                 variant="stop"
                             )
+
+                    with gr.Column():
+                        with gr.Row():
+                            start_sim = gr.Button(
+                                value="Run Simulation",
+                                variant="primary",
+                                size="lg"
+                            )
                             purge_results = gr.Button(
                                 value="Purge Results",
                                 variant="stop"
                             )
-
-                    with gr.Column():
-                        start_sim = gr.Button(
-                            value="Run Simulation",
-                            variant="primary",
-                            size="lg"
-                        )
                         results = gr.Markdown(
                             value="<center><h1>Results will be shown here.</h1></center>",
                             line_breaks=True,
@@ -274,9 +280,9 @@ def setup_layout(css, saved_color, theme):
         graph_type.change(update_graph_options, inputs=[graph_type], outputs=[graph])
 
         # Handle main simulation options
-        start_sim.click(run_sim, inputs=[N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, round_time, classic_time, batch_x_type, batch_x_val, batch_y_type, batch_y_val, batch_z_type, batch_z_val], outputs=[results, cur_graph])
-        purge_graphs.click(purge_graph_images, outputs=[cur_graph])
+        start_sim.click(run_sim, inputs=[N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, saved_graph, round_time, classic_time, batch_x_type, batch_x_val, batch_y_type, batch_y_val, batch_z_type, batch_z_val], outputs=[results, cur_graph])
         purge_results.click(purge_result_csvs)
+        purge_graphs.click(purge_graph_images, outputs=[cur_graph])
 
         # Handle customization options
         mode_js = theme_mode_js()

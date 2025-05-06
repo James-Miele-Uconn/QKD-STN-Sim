@@ -9,7 +9,7 @@ from .Simple import *
 from .Graphs import *
 
 
-def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, graph, num_users, round_time, classic_time):
+def get_vars(in_dict, from_dict=None):
     """Setup variables to be used for simulation.
 
     Args:
@@ -25,10 +25,25 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
       num_users: Number of user nodes in the network.
       round_time: Amount of time (in ms) per sim round.
       classic_time: Amount of time (in ms) for the classical phase of QKD.
+      from_dict: Dict of dicts to build a graph from. Defaults to None.
 
     Returns:
       Dictionary of needed variables.
     """
+    N = in_dict["N"]
+    Q = in_dict["Q"]
+    px = in_dict["px"]
+    sim_time = in_dict["sim_time"]
+    sim_keys = in_dict["sim_keys"]
+    using_stn = in_dict["using_stn"]
+    simple = in_dict["simple"]
+    graph_type = in_dict["graph_type"]
+    graph = in_dict["graph"]
+    num_users = in_dict["num_users"]
+    round_time = in_dict["round_time"]
+    classic_time = in_dict["classic_time"]
+    cur_time = in_dict["cur_time"]
+
     # Get parameters from cli
     args = parse_arguments()
 
@@ -56,13 +71,17 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
     cur_graph = args.graph
 
     # Get graph dict and graph
-    if graph_type == "Random":
-        G = make_grid_graph(cur_graph, num_users)
-        graph_dict = nx.to_dict_of_dicts(G)
-
+    if from_dict is not None:
+        G = nx.from_dict_of_dicts(from_dict)
+        graph_dict = from_dict
     else:
-        graph_dict = get_graph_dict(graph_type, cur_graph, num_users)
-        G = Graph(graph_dict)
+        if graph_type == "Random":
+            G = make_grid_graph(cur_graph, num_users)
+            graph_dict = nx.to_dict_of_dicts(G)
+
+        else:
+            graph_dict = get_graph_dict(graph_type, cur_graph, num_users)
+            G = Graph(graph_dict)
 
     # Record of which nodes are allowed to start QKD
     source_nodes = sorted([node for node in graph_dict.keys() if node.startswith('a')])
@@ -80,7 +99,7 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
     set_node_attributes(G, graph_nodes, "data")
 
     # Save figure for current graph
-    fname = f"Graph_{cur_graph}_{cur_time}.png"
+    graph_image_name = f"Graph_{cur_graph}_{cur_time}.png"
     if not os.path.exists("./graphs"):
         try:
             os.mkdir("./graphs")
@@ -103,7 +122,15 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
     draw_networkx_labels(G, pos, labels, font_size=9)
     plt.tight_layout()
     plt.axis("off")
-    plt.savefig(f"./graphs/{cur_graph}/{fname}")
+    plt.savefig(f"./graphs/{cur_graph}/{graph_image_name}")
+
+    # Save dict of dicts for current graph
+    graph_dict_name = f"Graph_{cur_graph}_{cur_time}.txt"
+    try:
+        with open(f"./graphs/{cur_graph}/{graph_dict_name}", "w") as outf:
+            outf.write(str(graph_dict))
+    except Exception as e:
+        raise Exception(e)
 
     output = {
         "cur_time": cur_time,
@@ -113,7 +140,7 @@ def get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, grap
         "graph_dict": graph_dict,
         "info": info,
         "src_nodes": source_nodes,
-        "graph_image_name": fname
+        "graph_image_name": graph_image_name
     }
 
     return output
@@ -525,26 +552,95 @@ def start_sim(in_dict):
       in_dict: Dictionary containing all needed variables.
 
     Returns:
-      Formatted string containing information about simulation run.
+      Dictionary containing information about simulation run.
     """
-    N = in_dict["N"]
-    Q = in_dict["Q"]
-    px = in_dict["px"]
-    sim_time = in_dict["sim_time"]
-    sim_keys = in_dict["sim_keys"]
-    using_stn = in_dict["using_stn"]
-    simple = in_dict["simple"]
-    graph_type = in_dict["graph_type"]
-    graph = in_dict["graph"]
-    num_users = in_dict["num_users"]
-    round_time = in_dict["round_time"]
-    classic_time = in_dict["classic_time"]
-    cur_time = in_dict["cur_time"]
+    # Get batch information
+    batch_x_type = in_dict["batch_x_type"]
+    batch_x_val = in_dict["batch_x_val"]
+    batch_y_type = in_dict["batch_y_type"]
+    batch_y_val = in_dict["batch_y_val"]
+    batch_z_type = in_dict["batch_z_type"]
+    batch_z_val = in_dict["batch_z_val"]
+    saved_graph_dict = in_dict["saved_graph_dict"]
 
-    vars = get_vars(cur_time, N, Q, px, sim_time, sim_keys, using_stn, graph_type, graph, num_users, round_time, classic_time)
-    if simple:
-        # Run simple simulation
-        return simple_sim(vars)
+    # Get initial state of variables
+    if saved_graph_dict is None:
+        vars = get_vars(in_dict)
+        saved_graph_dict = vars["graph_dict"]
     else:
-        # Start simulator
-        return main_sim(vars)
+        vars = get_vars(in_dict, from_dict=saved_graph_dict)
+
+    # Run simulation for desired number of times
+    all_results = []
+    graph_image_name = None
+    if (batch_x_type != "None") and (batch_y_type != "None") and (batch_z_type != "None"):
+        batch = True
+        x_vals = [float(val) for val in batch_x_val.split(",")]
+        y_vals = [float(val) for val in batch_y_val.split(",")]
+        z_vals = [float(val) for val in batch_z_val.split(",")]
+
+        for x_val in x_vals:
+            for y_val in y_vals:
+                for z_val in z_vals:
+                    in_dict[batch_x_type] = x_val
+                    in_dict[batch_y_type] = y_val
+                    in_dict[batch_z_type] = z_val
+
+                    try:
+                        vars = get_vars(in_dict, from_dict=saved_graph_dict)
+                        cur_results = main_sim(vars)
+                    except Exception as e:
+                        raise Exception(e)
+                    if graph_image_name is None:
+                        graph_image_name = cur_results["graph_image_name"]
+                    all_results.append(cur_results)
+    elif (batch_x_type != "None") and (batch_y_type != "None"):
+        batch = True
+        x_vals = [float(val) for val in batch_x_val.split(",")]
+        y_vals = [float(val) for val in batch_y_val.split(",")]
+
+        for x_val in x_vals:
+            for y_val in y_vals:
+                in_dict[batch_x_type] = x_val
+                in_dict[batch_y_type] = y_val
+
+                try:
+                    vars = get_vars(in_dict, from_dict=saved_graph_dict)
+                    cur_results = main_sim(vars)
+                except Exception as e:
+                    raise Exception(e)
+                if graph_image_name is None:
+                    graph_image_name = cur_results["graph_image_name"]
+                all_results.append(cur_results)
+    elif (batch_x_type != "None"):
+        batch = True
+        x_vals = [float(val) for val in batch_x_val.split(",")]
+
+        for x_val in x_vals:
+            in_dict[batch_x_type] = x_val
+
+            try:
+                vars = get_vars(in_dict, from_dict=saved_graph_dict)
+                cur_results = main_sim(vars)
+            except Exception as e:
+                raise Exception(e)
+            if graph_image_name is None:
+                graph_image_name = cur_results["graph_image_name"]
+            all_results.append(cur_results)
+    else:
+        batch = False
+        try:
+            cur_results = main_sim(vars)
+        except Exception as e:
+            raise Exception(e)
+        if graph_image_name is None:
+            graph_image_name = cur_results["graph_image_name"]
+        all_results.append(cur_results)
+    
+    output = {
+        "all_results": all_results,
+        "graph_image_name": graph_image_name,
+        "batch": batch
+    }
+
+    return output

@@ -4,7 +4,7 @@ from time import strftime, gmtime
 from .Main import *
 
 # Run simulation
-def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, round_time, classic_time, batch_x_type, batch_x_val, batch_y_type, batch_y_val, batch_z_type, batch_z_val):
+def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, num_users, saved_graph, round_time, classic_time, batch_x_type, batch_x_val, batch_y_type, batch_y_val, batch_z_type, batch_z_val):
     """Run simulation with given variables.
 
     Args:
@@ -18,6 +18,7 @@ def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, 
       graph_type: What type of graph to use.
       graph: Network graph to use.
       num_users: Number of user nodes in the network.
+      saved_graph: File containing information on desired graph to use.
       round_time: Amount of time (in ms) per sim round.
       classic_time: Amount of time (in ms) for the classical phase of QKD.
       batch_x_type: What variable to use for 'x' in batch processing.
@@ -45,72 +46,32 @@ def run_sim(N, Q, px, sim_time, sim_keys, using_stn, simple, graph_type, graph, 
         "num_users": num_users,
         "round_time": round_time,
         "classic_time": classic_time,
-        "cur_time": cur_time
+        "cur_time": cur_time,
+        "batch_x_type": batch_x_type,
+        "batch_x_val": batch_x_val,
+        "batch_y_type": batch_y_type,
+        "batch_y_val": batch_y_val,
+        "batch_z_type": batch_z_type,
+        "batch_z_val": batch_z_val
     }
 
-    # Run simulation for desired number of times
-    all_results = []
-    graph_image_name = None
-    if (batch_x_type != "None") and (batch_y_type != "None") and (batch_z_type != "None"):
-        batch = True
-        x_vals = [float(val) for val in batch_x_val.split(",")]
-        y_vals = [float(val) for val in batch_y_val.split(",")]
-        z_vals = [float(val) for val in batch_z_val.split(",")]
-
-        for x_val in x_vals:
-            for y_val in y_vals:
-                for z_val in z_vals:
-                    in_dict[batch_x_type] = x_val
-                    in_dict[batch_y_type] = y_val
-                    in_dict[batch_z_type] = z_val
-
-                    try:
-                        cur_results = start_sim(in_dict)
-                    except Exception as e:
-                        raise gr.Error(e, duration=None)
-                    if graph_image_name is None:
-                        graph_image_name = cur_results["graph_image_name"]
-                    all_results.append(cur_results)
-    elif (batch_x_type != "None") and (batch_y_type != "None"):
-        batch = True
-        x_vals = [float(val) for val in batch_x_val.split(",")]
-        y_vals = [float(val) for val in batch_y_val.split(",")]
-
-        for x_val in x_vals:
-            for y_val in y_vals:
-                in_dict[batch_x_type] = x_val
-                in_dict[batch_y_type] = y_val
-
-                try:
-                    cur_results = start_sim(in_dict)
-                except Exception as e:
-                    raise gr.Error(e, duration=None)
-                if graph_image_name is None:
-                    graph_image_name = cur_results["graph_image_name"]
-                all_results.append(cur_results)
-    elif (batch_x_type != "None"):
-        batch = True
-        x_vals = [float(val) for val in batch_x_val.split(",")]
-
-        for x_val in x_vals:
-            in_dict[batch_x_type] = x_val
-
-            try:
-                cur_results = start_sim(in_dict)
-            except Exception as e:
-                raise gr.Error(e, duration=None)
-            if graph_image_name is None:
-                graph_image_name = cur_results["graph_image_name"]
-            all_results.append(cur_results)
-    else:
-        batch = False
+    saved_graph_dict = None
+    if saved_graph is not None:
         try:
-            cur_results = start_sim(in_dict)
+            with open(saved_graph, "r") as inf:
+                saved_graph_dict = eval(inf.readline().strip())
         except Exception as e:
             raise gr.Error(e, duration=None)
-        if graph_image_name is None:
-            graph_image_name = cur_results["graph_image_name"]
-        all_results.append(cur_results)
+    in_dict["saved_graph_dict"] = saved_graph_dict
+
+    try:
+        output = start_sim(in_dict)
+    except Exception as e:
+        raise gr.Error(e, duration=None)
+    
+    all_results = output["all_results"]
+    graph_image_name = output["graph_image_name"]
+    batch = output["batch"]
 
     # Save results to csv
     if not os.path.exists("./results"):
