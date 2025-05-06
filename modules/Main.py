@@ -13,18 +13,7 @@ def get_vars(in_dict, from_dict=None):
     """Setup variables to be used for simulation.
 
     Args:
-      cur_time: Time as of the start of the simulator.
-      N: Number of rounds of communication within the quantum phase of QKD.
-      Q: Link-level noise in the system, as a decimal representation of a percentage.
-      px: Probability that the X basis is chosen in the quantum phase of QKD.
-      sim_time: Amount of time to simulate, ignored if -1. Will stop early if sim_keys enabled and finishes sooner.
-      sim_time: Amount of keys to simulate, ignored if -1. Will stop early if sim_time enabled and finishes sooner.
-      using_stn: Whether the simulator is using STNs.
-      graph_type: What type of graph to use.
-      graph: Network graph to use.
-      num_users: Number of user nodes in the network.
-      round_time: Amount of time (in ms) per sim round.
-      classic_time: Amount of time (in ms) for the classical phase of QKD.
+      in_dict: Dict containing variables to use for setup.
       from_dict: Dict of dicts to build a graph from. Defaults to None.
 
     Returns:
@@ -453,7 +442,7 @@ def main_sim(vars):
 
     # Match round time to max of quantim or classic time, if desired
     if round_time == -1:
-        round_time = qubit_rate
+        round_time = min(qubit_rate, classic_time)
 
     # Get time simulation actually starts running for debug messages
     if debug:
