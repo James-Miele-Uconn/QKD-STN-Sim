@@ -324,7 +324,7 @@ class Info_Tracker():
           self.average_key_rate += ((key_length / self.m_vars['N']) - self.average_key_rate) / self.finished_keys
 
     def increase_average_cost(self, cur_cost):
-        """Increase the counter tracking the average key rate.
+        """Increase the counter tracking the average cost.
 
         Args:
           cur_cost: The cost of the current QKD instance.
